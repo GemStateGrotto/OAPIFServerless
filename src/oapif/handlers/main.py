@@ -18,11 +18,17 @@ from oapif.handlers.routes import (
     handle_api,
     handle_collections,
     handle_conformance,
+    handle_create_feature,
+    handle_delete_feature,
     handle_feature,
     handle_items,
     handle_landing_page,
+    handle_options_feature,
+    handle_options_items,
+    handle_replace_feature,
     handle_schema,
     handle_single_collection,
+    handle_update_feature,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,6 +36,7 @@ logger.setLevel(logging.INFO)
 
 # Pre-compiled route patterns (order matters — most specific first)
 _ROUTES: list[tuple[str, re.Pattern[str], Any]] = [
+    # Read endpoints
     ("GET", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items/(?P<featureId>[^/]+)$"), handle_feature),
     ("GET", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items$"), handle_items),
     ("GET", re.compile(r"^/collections/(?P<collectionId>[^/]+)/schema$"), handle_schema),
@@ -38,6 +45,18 @@ _ROUTES: list[tuple[str, re.Pattern[str], Any]] = [
     ("GET", re.compile(r"^/conformance$"), handle_conformance),
     ("GET", re.compile(r"^/api$"), handle_api),
     ("GET", re.compile(r"^/$"), handle_landing_page),
+    # Write endpoints (Part 4: CRUD)
+    ("POST", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items$"), handle_create_feature),
+    ("PUT", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items/(?P<featureId>[^/]+)$"), handle_replace_feature),
+    ("PATCH", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items/(?P<featureId>[^/]+)$"), handle_update_feature),
+    ("DELETE", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items/(?P<featureId>[^/]+)$"), handle_delete_feature),
+    # OPTIONS
+    (
+        "OPTIONS",
+        re.compile(r"^/collections/(?P<collectionId>[^/]+)/items/(?P<featureId>[^/]+)$"),
+        handle_options_feature,
+    ),
+    ("OPTIONS", re.compile(r"^/collections/(?P<collectionId>[^/]+)/items$"), handle_options_items),
 ]
 
 

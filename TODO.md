@@ -93,18 +93,18 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 6: OAPIF Part 4 (Write) Endpoints
 
-- [ ] Implement write endpoints:
-  - [ ] `POST /collections/{collectionId}/items` — Create feature (201 + Location header)
-  - [ ] `PUT /collections/{collectionId}/items/{featureId}` — Replace feature (204, ETag in response)
-  - [ ] `PATCH /collections/{collectionId}/items/{featureId}` — Update feature via JSON Merge Patch (200 or 204)
-  - [ ] `DELETE /collections/{collectionId}/items/{featureId}` — Delete feature (204)
-  - [ ] `OPTIONS` on items and item endpoints — Return Allow header with supported methods
-- [ ] Enforce `If-Match` / ETag optimistic concurrency on PUT, PATCH, DELETE
-  - [ ] Return `412 Precondition Failed` on ETag mismatch
-  - [ ] Optionally return `428 Precondition Required` if `If-Match` is omitted
-- [ ] Validate request bodies against collection schema; return `422` on schema violation
-- [ ] Write all mutations to the change tracking table
-- [ ] Write integration tests for the full CRUD lifecycle
+- [x] Implement write endpoints:
+  - [x] `POST /collections/{collectionId}/items` — Create feature (201 + Location header)
+  - [x] `PUT /collections/{collectionId}/items/{featureId}` — Replace feature (200, ETag in response)
+  - [x] `PATCH /collections/{collectionId}/items/{featureId}` — Update feature via JSON Merge Patch (200)
+  - [x] `DELETE /collections/{collectionId}/items/{featureId}` — Delete feature (204)
+  - [x] `OPTIONS` on items and item endpoints — Return Allow header with supported methods
+- [x] Enforce `If-Match` / ETag optimistic concurrency on PUT, PATCH, DELETE
+  - [x] Return `412 Precondition Failed` on ETag mismatch
+  - [x] Return `428 Precondition Required` if `If-Match` is omitted
+- [x] Validate request bodies against collection schema; return `422` on schema violation
+- [x] Write all mutations to the change tracking table
+- [x] Write integration tests for the full CRUD lifecycle
 
 ## Phase 7: Field-Level Authorization
 

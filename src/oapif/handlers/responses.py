@@ -68,6 +68,27 @@ def geojson_response(
     )
 
 
+def no_content_response(
+    *,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build an API Gateway v2 204 No Content response.
+
+    Parameters
+    ----------
+    headers:
+        Additional headers to include (e.g. ETag).
+    """
+    resp_headers: dict[str, str] = {}
+    if headers:
+        resp_headers.update(headers)
+    return {
+        "statusCode": 204,
+        "headers": resp_headers,
+        "body": "",
+    }
+
+
 def error_response(
     status_code: int,
     title: str,

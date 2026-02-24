@@ -1,4 +1,4 @@
-"""Route handler functions for OGC API - Features read endpoints.
+"""Route handler functions for OGC API - Features endpoints.
 
 Each function receives the raw API Gateway event, the derived base URL,
 and extracted path parameters.  They interact with the DAL and return
@@ -7,20 +7,30 @@ API Gateway v2-compatible response dicts.
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 from typing import Any
 
 import boto3
+import jsonschema
 
 from oapif.auth import AuthContext, resolve_auth_context
 from oapif.config import RuntimeConfig
 from oapif.dal.collections import CollectionDAL
-from oapif.dal.exceptions import CollectionNotFoundError, FeatureNotFoundError
+from oapif.dal.exceptions import (
+    CollectionNotFoundError,
+    ETagMismatchError,
+    ETagRequiredError,
+    FeatureNotFoundError,
+    OrganizationImmutableError,
+)
 from oapif.dal.features import FeatureDAL
 from oapif.handlers.responses import (
     error_response,
     geojson_response,
     json_response,
+    no_content_response,
 )
 from oapif.models.feature import utcnow_iso
 from oapif.schema import generate_schema
@@ -535,3 +545,394 @@ def handle_api(
     }
 
     return json_response(200, openapi, content_type="application/vnd.oai.openapi+json;version=3.0")
+
+
+# ---------------------------------------------------------------------------
+# Request body / header helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_request_body(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract and parse the JSON request body from an API Gateway v2 event.
+
+    Returns ``None`` if the body is missing or empty.
+    Raises ``ValueError`` if the body is not valid JSON.
+    """
+    raw = event.get("body")
+    if not raw:
+        return None
+
+    if event.get("isBase64Encoded", False):
+        raw = base64.b64decode(raw).decode("utf-8")
+
+    return json.loads(raw)  # type: ignore[no-any-return]
+
+
+def _get_if_match(event: dict[str, Any]) -> str | None:
+    """Extract the ``If-Match`` header ETag value from the event.
+
+    Strips surrounding quotes per RFC 9110.
+    """
+    headers = event.get("headers") or {}
+    # API Gateway v2 lowercases all header names
+    raw = headers.get("if-match")
+    if raw is None:
+        return None
+    result: str = raw.strip().strip('"')
+    return result
+
+
+def _require_if_match(event: dict[str, Any]) -> str:
+    """Extract and return the ``If-Match`` ETag, or raise 428 if missing."""
+    etag = _get_if_match(event)
+    if not etag:
+        raise ETagRequiredError()
+    return etag
+
+
+def _validate_feature_body(
+    body: dict[str, Any],
+    collection_config: Any,
+) -> str | None:
+    """Validate a feature body against the collection's receivable schema.
+
+    Returns ``None`` on success or an error detail string on validation failure.
+    """
+    schema = generate_schema(collection_config, receivable=True)
+    try:
+        jsonschema.validate(body, schema)
+    except jsonschema.ValidationError as exc:
+        msg: str = exc.message
+        return msg
+    return None
+
+
+def _require_auth(event: dict[str, Any], params: dict[str, str]) -> AuthContext:
+    """Resolve auth context, requiring authentication for write operations.
+
+    Unauthenticated callers get a 401 response.
+    """
+    from oapif.auth import AuthError
+
+    auth = resolve_auth_context(event, query_params=params)
+    if not auth.authenticated:
+        raise AuthError(
+            status_code=401,
+            message="Authentication required",
+            detail="Write operations require a valid JWT token.",
+        )
+    return auth
+
+
+# ---------------------------------------------------------------------------
+# POST /collections/{collectionId}/items — Create feature (Part 4 §7.1)
+# ---------------------------------------------------------------------------
+
+
+def handle_create_feature(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Create a new feature in a collection.
+
+    Returns 201 Created with a Location header pointing to the new feature.
+    """
+    collection_id = path_params["collectionId"]
+    params = _get_query_params(event)
+
+    # Require authentication for write operations
+    auth = _require_auth(event, params)
+
+    # Validate collection exists
+    col_dal = _get_collection_dal()
+    try:
+        config = col_dal.get_collection(collection_id)
+    except CollectionNotFoundError:
+        return error_response(404, "Collection not found", detail=f"Collection '{collection_id}' does not exist.")
+
+    # Parse and validate request body
+    try:
+        body = _parse_request_body(event)
+    except ValueError, json.JSONDecodeError:
+        return error_response(400, "Invalid JSON", detail="Request body is not valid JSON.")
+
+    if body is None:
+        return error_response(400, "Missing request body", detail="POST request requires a JSON body.")
+
+    # Schema validation
+    validation_error = _validate_feature_body(body, config)
+    if validation_error:
+        return error_response(422, "Schema validation failed", detail=validation_error)
+
+    feat_dal = _get_feature_dal()
+    feature = feat_dal.create_feature(
+        collection_id=collection_id,
+        feature_data=body,
+        organization=auth.organization,
+    )
+
+    location = f"{base_url}/collections/{collection_id}/items/{feature.id}"
+    geojson = feature.to_geojson()
+    geojson["links"] = [
+        {"href": location, "rel": "self", "type": "application/geo+json"},
+        {
+            "href": f"{base_url}/collections/{collection_id}",
+            "rel": "collection",
+            "type": "application/json",
+        },
+    ]
+
+    return geojson_response(
+        201,
+        geojson,
+        headers={
+            "Location": location,
+            "ETag": f'"{feature.etag}"',
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# PUT /collections/{collectionId}/items/{featureId} — Replace feature
+# ---------------------------------------------------------------------------
+
+
+def handle_replace_feature(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Replace a feature entirely (PUT semantics).
+
+    Requires ``If-Match`` header with the current ETag.
+    Returns 200 with the updated feature and new ETag.
+    """
+    collection_id = path_params["collectionId"]
+    feature_id = path_params["featureId"]
+    params = _get_query_params(event)
+
+    auth = _require_auth(event, params)
+
+    # Validate collection exists
+    col_dal = _get_collection_dal()
+    try:
+        config = col_dal.get_collection(collection_id)
+    except CollectionNotFoundError:
+        return error_response(404, "Collection not found", detail=f"Collection '{collection_id}' does not exist.")
+
+    # Require If-Match
+    try:
+        if_match = _require_if_match(event)
+    except ETagRequiredError:
+        return error_response(428, "Precondition Required", detail="If-Match header with ETag is required.")
+
+    # Parse and validate request body
+    try:
+        body = _parse_request_body(event)
+    except ValueError, json.JSONDecodeError:
+        return error_response(400, "Invalid JSON", detail="Request body is not valid JSON.")
+
+    if body is None:
+        return error_response(400, "Missing request body", detail="PUT request requires a JSON body.")
+
+    validation_error = _validate_feature_body(body, config)
+    if validation_error:
+        return error_response(422, "Schema validation failed", detail=validation_error)
+
+    feat_dal = _get_feature_dal()
+    try:
+        feature = feat_dal.replace_feature(
+            collection_id=collection_id,
+            feature_id=feature_id,
+            feature_data=body,
+            if_match=if_match,
+            organization=auth.organization,
+        )
+    except FeatureNotFoundError:
+        return error_response(404, "Feature not found", detail=f"Feature '{feature_id}' not found.")
+    except ETagMismatchError:
+        return error_response(412, "Precondition Failed", detail="The ETag does not match the current version.")
+    except OrganizationImmutableError:
+        return error_response(422, "Organization immutable", detail="The 'organization' field cannot be changed.")
+
+    geojson = feature.to_geojson()
+    feature_url = f"{base_url}/collections/{collection_id}/items/{feature_id}"
+    geojson["links"] = [
+        {"href": feature_url, "rel": "self", "type": "application/geo+json"},
+        {
+            "href": f"{base_url}/collections/{collection_id}",
+            "rel": "collection",
+            "type": "application/json",
+        },
+    ]
+
+    return geojson_response(
+        200,
+        geojson,
+        headers={"ETag": f'"{feature.etag}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /collections/{collectionId}/items/{featureId} — Update feature
+# ---------------------------------------------------------------------------
+
+
+def handle_update_feature(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Apply a JSON Merge Patch (RFC 7396) to a feature.
+
+    Requires ``If-Match`` header with the current ETag.
+    Returns 200 with the updated feature and new ETag.
+    """
+    collection_id = path_params["collectionId"]
+    feature_id = path_params["featureId"]
+    params = _get_query_params(event)
+
+    auth = _require_auth(event, params)
+
+    # Validate collection exists
+    col_dal = _get_collection_dal()
+    try:
+        col_dal.get_collection(collection_id)
+    except CollectionNotFoundError:
+        return error_response(404, "Collection not found", detail=f"Collection '{collection_id}' does not exist.")
+
+    # Require If-Match
+    try:
+        if_match = _require_if_match(event)
+    except ETagRequiredError:
+        return error_response(428, "Precondition Required", detail="If-Match header with ETag is required.")
+
+    # Parse request body (no full schema validation for PATCH — partial updates allowed)
+    try:
+        body = _parse_request_body(event)
+    except ValueError, json.JSONDecodeError:
+        return error_response(400, "Invalid JSON", detail="Request body is not valid JSON.")
+
+    if body is None:
+        return error_response(400, "Missing request body", detail="PATCH request requires a JSON body.")
+
+    feat_dal = _get_feature_dal()
+    try:
+        feature = feat_dal.update_feature(
+            collection_id=collection_id,
+            feature_id=feature_id,
+            patch=body,
+            if_match=if_match,
+            organization=auth.organization,
+        )
+    except FeatureNotFoundError:
+        return error_response(404, "Feature not found", detail=f"Feature '{feature_id}' not found.")
+    except ETagMismatchError:
+        return error_response(412, "Precondition Failed", detail="The ETag does not match the current version.")
+    except OrganizationImmutableError:
+        return error_response(422, "Organization immutable", detail="The 'organization' field cannot be changed.")
+
+    geojson = feature.to_geojson()
+    feature_url = f"{base_url}/collections/{collection_id}/items/{feature_id}"
+    geojson["links"] = [
+        {"href": feature_url, "rel": "self", "type": "application/geo+json"},
+        {
+            "href": f"{base_url}/collections/{collection_id}",
+            "rel": "collection",
+            "type": "application/json",
+        },
+    ]
+
+    return geojson_response(
+        200,
+        geojson,
+        headers={"ETag": f'"{feature.etag}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# DELETE /collections/{collectionId}/items/{featureId} — Delete feature
+# ---------------------------------------------------------------------------
+
+
+def handle_delete_feature(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Soft-delete a feature.
+
+    Requires ``If-Match`` header with the current ETag.
+    Returns 204 No Content on success.
+    """
+    collection_id = path_params["collectionId"]
+    feature_id = path_params["featureId"]
+    params = _get_query_params(event)
+
+    auth = _require_auth(event, params)
+
+    # Require If-Match
+    try:
+        if_match = _require_if_match(event)
+    except ETagRequiredError:
+        return error_response(428, "Precondition Required", detail="If-Match header with ETag is required.")
+
+    feat_dal = _get_feature_dal()
+    try:
+        feat_dal.delete_feature(
+            collection_id=collection_id,
+            feature_id=feature_id,
+            if_match=if_match,
+            organization=auth.organization,
+        )
+    except FeatureNotFoundError:
+        return error_response(404, "Feature not found", detail=f"Feature '{feature_id}' not found.")
+    except ETagMismatchError:
+        return error_response(412, "Precondition Failed", detail="The ETag does not match the current version.")
+
+    return no_content_response()
+
+
+# ---------------------------------------------------------------------------
+# OPTIONS /collections/{collectionId}/items — Supported methods
+# ---------------------------------------------------------------------------
+
+
+def handle_options_items(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Return supported methods for the items endpoint."""
+    return no_content_response(
+        headers={
+            "Allow": "GET, POST, OPTIONS",
+            "Accept-Patch": "application/merge-patch+json",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# OPTIONS /collections/{collectionId}/items/{featureId} — Supported methods
+# ---------------------------------------------------------------------------
+
+
+def handle_options_feature(
+    *,
+    event: dict[str, Any],
+    base_url: str,
+    path_params: dict[str, str],
+) -> dict[str, Any]:
+    """Return supported methods for the single feature endpoint."""
+    return no_content_response(
+        headers={
+            "Allow": "GET, PUT, PATCH, DELETE, OPTIONS",
+            "Accept-Patch": "application/merge-patch+json",
+        },
+    )
