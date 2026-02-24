@@ -82,14 +82,14 @@ jobs:
       - name: Wait for DynamoDB Local
         run: |
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000 > /dev/null 2>&1; then
+            if curl -s -o /dev/null http://localhost:8000 2>&1; then
               echo "DynamoDB Local is ready"
               break
             fi
             echo "Waiting for DynamoDB Local... ($i/30)"
             sleep 1
           done
-          curl -sf http://localhost:8000 > /dev/null 2>&1 || { echo "DynamoDB Local failed to start"; exit 1; }
+          curl -s -o /dev/null http://localhost:8000 2>&1 || { echo "DynamoDB Local failed to start"; exit 1; }
 
       - name: Set up Python
         uses: actions/setup-python@v5
