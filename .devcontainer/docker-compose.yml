@@ -7,8 +7,6 @@
 services:
   app:
     image: mcr.microsoft.com/devcontainers/python:3.14
-    volumes:
-      - ..:/workspaces/OAPIFServerless:cached
     command: sleep infinity
     depends_on:
       - dynamodb-local
