@@ -102,7 +102,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run integration tests
-        run: pytest tests/integration -m integration --cov=src/oapif --cov-report=xml --cov-fail-under=0
+        run: pytest tests/integration -m integration --cov=src/oapif --cov-report=xml --cov-fail-under=80
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

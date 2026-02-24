@@ -91,7 +91,7 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 Run before every commit:
 
 ```bash
-./scripts/check.sh          # lint + format + type-check (must pass)
+./scripts/check.sh          # lint + format + type-check + tests with coverage (must pass)
 ./scripts/check.sh --fix    # auto-fix first, then verify
 ```
 

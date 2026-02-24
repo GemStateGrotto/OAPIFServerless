@@ -1,6 +1,6 @@
 # TODO — OAPIFServerless Build Plan
 
-This document tracks the full build-out of the project. Phases are roughly sequential but some tasks within a phase can be parallelized.
+This document tracks the full build-out of the project. Phases are roughly sequential but some tasks within a phase can be parallelized.  While instructions here appear explicit, treat these as guidelines rather than strict rules — if you see a better way to implement something, feel free to deviate. The goal is a working implementation that meets the project requirements, not strict adherence to this plan.
 
 ---
 
@@ -11,22 +11,22 @@ This document tracks the full build-out of the project. Phases are roughly seque
 - [x] Set up Python project structure with `pyproject.toml`, linting (ruff), and formatting (black)
 - [x] Set up pytest with DynamoDB Local for integration tests
 - [x] Create CI pipeline (GitHub Actions) for lint, test, and deploy
-- [ ] Re-enable `--cov-fail-under=80` for integration test CI job once integration tests exist
+- [x] Re-enable `--cov-fail-under=80` for integration test CI job once integration tests exist
 - [x] Define environment variable / config schema for deployment parameters
 
 ## Phase 1: DynamoDB Data Layer
 
-- [ ] Design and document final DynamoDB table schemas (features, change tracking, collection config)
-- [ ] Implement data access layer (DAL) for feature CRUD against DynamoDB
-  - [ ] `create_feature(collection_id, feature)` → assigns ID, sets ETag, writes to features + change log
-  - [ ] `get_feature(collection_id, feature_id)` → returns feature with ETag
-  - [ ] `query_features(collection_id, limit, cursor, bbox?, datetime?, property_filters?)` → paged results
-  - [ ] `replace_feature(collection_id, feature_id, feature, if_match)` → conditional write, change log
-  - [ ] `update_feature(collection_id, feature_id, patch, if_match)` → merge patch, conditional write, change log
-  - [ ] `delete_feature(collection_id, feature_id, if_match)` → soft-delete, change log
-- [ ] Implement ETag generation and conditional expression enforcement in DynamoDB
-- [ ] Implement cursor-based pagination (encode/decode opaque cursor tokens)
-- [ ] Write unit and integration tests for the DAL
+- [x] Design and document final DynamoDB table schemas (features, change tracking, collection config)
+- [x] Implement data access layer (DAL) for feature CRUD against DynamoDB
+  - [x] `create_feature(collection_id, feature)` → assigns ID, sets ETag, writes to features + change log
+  - [x] `get_feature(collection_id, feature_id)` → returns feature with ETag
+  - [x] `query_features(collection_id, limit, cursor, bbox?, datetime?, property_filters?)` → paged results
+  - [x] `replace_feature(collection_id, feature_id, feature, if_match)` → conditional write, change log
+  - [x] `update_feature(collection_id, feature_id, patch, if_match)` → merge patch, conditional write, change log
+  - [x] `delete_feature(collection_id, feature_id, if_match)` → soft-delete, change log
+- [x] Implement ETag generation and conditional expression enforcement in DynamoDB
+- [x] Implement cursor-based pagination (encode/decode opaque cursor tokens)
+- [x] Write unit and integration tests for the DAL
 
 ## Phase 2: Collection Configuration and Schema
 

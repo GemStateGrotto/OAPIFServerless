@@ -47,6 +47,10 @@ fi
 # --- mypy ---
 run_check "mypy" mypy src/
 
+# --- Tests with coverage ---
+run_check "unit tests"        pytest tests/unit -m unit --cov=src/oapif --cov-report=term-missing --cov-fail-under=80 -q
+run_check "integration tests"  pytest tests/integration -m integration --cov=src/oapif --cov-report=term-missing --cov-fail-under=80 -q
+
 # --- Summary ---
 echo "──────────────────────────────"
 printf "${BOLD}Results: ${GREEN}%d passed${RESET}" "$passed"
