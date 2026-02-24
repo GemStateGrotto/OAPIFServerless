@@ -53,8 +53,8 @@
         }
     },
 
-    // Install project dependencies after container creation
-    "postCreateCommand": "pip install -e '.[cdk,dev]' && npm install -g aws-cdk",
+    // Install project dependencies and git hooks after container creation
+    "postCreateCommand": "pip install -e '.[cdk,dev]' && npm install -g aws-cdk && cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit",
 
     // Environment variables available inside the container
     "containerEnv": {

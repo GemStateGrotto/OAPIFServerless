@@ -9,6 +9,15 @@ Usage:
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Ensure the project root is on sys.path so that ``from deploy.config …``
+# resolves correctly when CDK invokes ``python deploy/app.py``.
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 import aws_cdk as cdk
 
 from deploy.config import load_deployment_config

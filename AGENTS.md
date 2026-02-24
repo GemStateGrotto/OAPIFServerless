@@ -1,5 +1,7 @@
 # AGENTS.md — Agent Baseline Expectations
 
+> Keep this file concise. Every line consumes context window. Avoid redundancy — if something is clear from the code, don't repeat it here. Prune on every edit.
+
 This file provides context and guidelines for AI coding agents working on this project.
 
 ## Project Summary
@@ -15,38 +17,17 @@ OAPIFServerless is an AWS Serverless OGC API - Features implementation backed by
 
 ## Development Environment
 
-This project uses a **DevContainer** (VS Code Dev Containers / GitHub Codespaces). All development should happen inside the container — do not rely on the host Python installation.
-
-- The DevContainer provides Python 3.14, Node.js 22, AWS CLI, and DynamoDB Local.
-- Dependencies are installed automatically via `postCreateCommand` in `.devcontainer/devcontainer.json`.
-- DynamoDB Local runs as a sibling container, reachable at `http://dynamodb-local:8000` from inside the dev container.
-- To open: VS Code → "Reopen in Container" (or `Dev Containers: Reopen in Container` from the command palette).
+All development happens inside the **DevContainer**. It provides Python 3.14, Node.js 22, AWS CLI, and DynamoDB Local (`http://dynamodb-local:8000`). Dependencies are auto-installed via `postCreateCommand`.
 
 ## Project Layout
 
 ```
-OAPIFServerless/
-├── .devcontainer/       # DevContainer configuration
-│   ├── devcontainer.json
-│   └── docker-compose.yml
-├── src/oapif/           # Lambda backend source
-│   ├── handlers/        # API Gateway Lambda handlers
-│   ├── dal/             # DynamoDB data access layer
-│   ├── auth/            # Auth & authorization logic
-│   ├── models/          # Data models and schemas
-│   └── config.py        # Runtime config from env vars
-├── deploy/              # CDK app and stacks (Python)
-│   ├── app.py           # CDK entry point
-│   ├── config.py        # Deployment config loader
-│   └── stacks/          # CDK stack definitions
-├── tests/               # pytest test suite
-│   ├── conftest.py      # Shared fixtures (moto, DynamoDB Local)
-│   ├── unit/            # Unit tests (no external deps)
-│   └── integration/     # Integration tests (DynamoDB Local)
-├── .github/workflows/   # CI pipeline
-├── pyproject.toml       # Python project config (deps, tools)
-├── .env.example         # Environment variable reference
-└── docker-compose.yml   # Standalone DynamoDB Local (outside devcontainer)
+.devcontainer/   # DevContainer configuration
+src/oapif/       # Lambda backend (handlers/, dal/, auth/, models/)
+deploy/          # CDK app and stacks
+tests/           # pytest suite (unit/, integration/)
+scripts/         # Quality-gate script and pre-commit hook
+.github/         # CI workflows
 ```
 
 ## Key Standards
@@ -105,23 +86,36 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 - Field-level write restrictions are enforced before DynamoDB writes, not after
 - IAM roles use least-privilege; Lambda functions only get access to the specific tables and buckets they need
 
-## Commit and PR Expectations
+## Pre-Commit Quality Gate
 
-- Commit messages should be concise and imperative ("Add feature schema endpoint", not "Added feature schema endpoint")
+Run before every commit:
+
+```bash
+./scripts/check.sh          # lint + format + type-check (must pass)
+./scripts/check.sh --fix    # auto-fix first, then verify
+```
+
+A git pre-commit hook enforces this automatically (installed by DevContainer `postCreateCommand`). Do not use `--no-verify`. If the hook is missing:
+
+```bash
+cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+## Commits & PRs
+
+- Imperative, concise commit messages ("Add schema endpoint", not "Added schema endpoint")
 - One logical change per commit
-- PRs should include tests for new behavior
-- Breaking changes to the API must update the OpenAPI definition and schema endpoints
+- PRs must include tests for new behavior
+- API-breaking changes must update the OpenAPI definition
 
-## Documentation Accuracy
+## Documentation
 
-- Always verify that documentation (README.md, AGENTS.md, TODO.md, .env.example, inline comments) matches the actual state of the code
-- If you find a mismatch between docs and implementation, fix the documentation to reflect reality
-- When making code changes, update all affected documentation in the same pass — do not leave stale references
-- Treat outdated documentation as a bug
+- Docs must match code — treat stale docs as bugs
+- Update all affected docs (README, AGENTS, TODO, .env.example) in the same pass as code changes
 
-## What NOT to Do
+## Don'ts
 
-- Do not hardcode AWS account IDs, region, or resource names — use environment variables or CDK context
-- Do not store feature data in S3 (S3 is only for QGIS project files)
-- Do not implement automated rollback — change tracking is append-only for audit; manual restore only
-- Do not return features the caller is not authorized to see — filter before response, not after
+- No hardcoded AWS account IDs, regions, or resource names — use env vars or CDK context
+- S3 is for QGIS project files only — not feature data
+- No automated rollback — change tracking is append-only
+- Never return features the caller isn't authorized to see

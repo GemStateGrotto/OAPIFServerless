@@ -13,9 +13,17 @@ from typing import TYPE_CHECKING
 import aws_cdk as cdk
 from aws_cdk import (
     Duration,
+)
+from aws_cdk import (
     aws_apigatewayv2 as apigwv2,
+)
+from aws_cdk import (
     aws_dynamodb as dynamodb,
+)
+from aws_cdk import (
     aws_lambda as lambda_,
+)
+from aws_cdk import (
     aws_s3 as s3,
 )
 from constructs import Construct

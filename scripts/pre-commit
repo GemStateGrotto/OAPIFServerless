@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Git pre-commit hook — runs lint, format, and type checks.
+# Blocks the commit if any check fails.
+#
+# Installed automatically by postCreateCommand in devcontainer.json.
+# Manual install:  cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -euo pipefail
+
+echo "Running pre-commit checks…"
+exec "$(git rev-parse --show-toplevel)/scripts/check.sh"

@@ -10,7 +10,8 @@ Provides:
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Generator
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 import boto3
 import pytest
@@ -63,7 +64,7 @@ def lambda_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
 
 
 @pytest.fixture()
-def dynamodb_mock() -> Generator[DynamoDBServiceResource, None, None]:
+def dynamodb_mock() -> Generator[DynamoDBServiceResource]:
     """Provide a moto-mocked DynamoDB resource for unit tests."""
     with mock_aws():
         resource: DynamoDBServiceResource = boto3.resource("dynamodb", region_name="us-east-1")
