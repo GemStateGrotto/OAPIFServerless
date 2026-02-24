@@ -91,8 +91,15 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 Run before every commit:
 
 ```bash
-./scripts/check.sh          # lint + format + type-check + tests with coverage (must pass)
-./scripts/check.sh --fix    # auto-fix first, then verify
+./scripts/check.sh                 # ALL checks (lint, format, types, tests, CDK synth)
+./scripts/check.sh lint            # ruff lint + format only
+./scripts/check.sh types           # mypy only
+./scripts/check.sh unit            # unit tests only
+./scripts/check.sh integration     # integration tests only
+./scripts/check.sh synth           # CDK synth only
+./scripts/check.sh lint types      # combine any subset
+./scripts/check.sh --fix           # auto-fix lint/format, then run all checks
+./scripts/check.sh --fix lint      # auto-fix lint/format only
 ```
 
 A git pre-commit hook enforces this automatically (installed by DevContainer `postCreateCommand`). Do not use `--no-verify`. If the hook is missing:

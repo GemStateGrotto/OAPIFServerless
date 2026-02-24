@@ -65,7 +65,11 @@ class DataStack(cdk.Stack):
             sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
             billing_mode=billing_mode,
             removal_policy=removal_policy,
-            point_in_time_recovery=not is_dev,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=not is_dev,
+            )
+            if not is_dev
+            else None,
         )
 
         # --- Change Tracking Table ---
@@ -77,7 +81,11 @@ class DataStack(cdk.Stack):
             sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
             billing_mode=billing_mode,
             removal_policy=removal_policy,
-            point_in_time_recovery=not is_dev,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=not is_dev,
+            )
+            if not is_dev
+            else None,
         )
 
         # --- Collection Config Table ---
