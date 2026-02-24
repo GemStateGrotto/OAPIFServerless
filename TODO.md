@@ -6,11 +6,12 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 0: Project Scaffolding
 
-- [ ] Choose IaC approach (CDK vs SAM) and initialize project skeleton
-- [ ] Set up Python project structure with `pyproject.toml`, linting (ruff), and formatting (black)
-- [ ] Set up pytest with DynamoDB Local for integration tests
-- [ ] Create CI pipeline (GitHub Actions) for lint, test, and deploy
-- [ ] Define environment variable / config schema for deployment parameters
+- [x] Choose IaC approach (CDK vs SAM) and initialize project skeleton
+  - Decision: **AWS CDK (Python)** — single language, no TypeScript/Python mix
+- [x] Set up Python project structure with `pyproject.toml`, linting (ruff), and formatting (black)
+- [x] Set up pytest with DynamoDB Local for integration tests
+- [x] Create CI pipeline (GitHub Actions) for lint, test, and deploy
+- [x] Define environment variable / config schema for deployment parameters
 
 ## Phase 1: DynamoDB Data Layer
 
@@ -28,13 +29,13 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 2: Collection Configuration and Schema
 
-- [ ] Design collection configuration format (YAML/JSON) defining:
+- [ ] Design collection configuration format defining:
   - [ ] Collection ID, title, description, extent
   - [ ] Feature schema (property names, types, required fields, enums)
   - [ ] `visibility` enum values for this collection
   - [ ] Organization-to-Cognito-group mapping
   - [ ] Access control group mappings
-- [ ] Implement config loader (read from DynamoDB config table or bundled config file)
+- [ ] Implement config loader (read from DynamoDB config table)
 - [ ] Implement dynamic schema endpoint (`/collections/{collectionId}/schema`) returning JSON Schema
   - [ ] Mark `id` as `readOnly`
   - [ ] Mark geometry role with `x-ogc-role: primary-geometry`
@@ -62,7 +63,7 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 4: Authentication and Authorization Infrastructure
 
-- [ ] Define Cognito User Pool with OIDC configuration (CDK/SAM)
+- [ ] Define Cognito User Pool with OIDC configuration (CDK)
   - [ ] Configure hosted UI domain for OIDC authorization code flow
   - [ ] Define app client for QGIS plugin (PKCE, authorization code flow)
   - [ ] Define app client for machine-to-machine (client credentials, optional)
@@ -147,11 +148,12 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 11: Deployment System
 
-- [ ] Finalize IaC templates (CDK stacks or SAM template):
-  - [ ] Cognito stack (User Pool, clients, groups, domain)
-  - [ ] Data stack (DynamoDB tables, S3 bucket)
-  - [ ] API stack (API Gateway, Lambda functions, authorizer)
-  - [ ] Config stack (seed collection configuration)
+- [x] Define CDK stack architecture: `DataStack` (stateful) + `ApiStack` (stateless)
+- [x] Implement `RemovalPolicy.RETAIN` and termination protection for non-dev environments
+- [x] Implement deployment config via environment variables (`OAPIF_*`) and CDK context
+- [ ] Finalize CDK stacks:
+  - [ ] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
+  - [ ] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
 - [ ] Create deployment CLI or Makefile with `bootstrap`, `deploy`, `destroy` commands
 - [ ] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)
 - [ ] Test full deploy-from-scratch on a clean AWS account

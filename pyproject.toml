@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oapif-serverless"
+version = "0.1.0"
+description = "AWS Serverless OGC API - Features implementation backed by DynamoDB"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.14"
+authors = [{ name = "GemStateGrotto" }]
+
+dependencies = [
+    "boto3>=1.35",
+    "aws-lambda-powertools>=3.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+cdk = [
+    "aws-cdk-lib>=2.170.0",
+    "constructs>=10.0.0,<11.0.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pytest-asyncio>=0.24",
+    "moto[dynamodb]>=5.0",
+    "boto3-stubs[dynamodb,s3,cognito-idp]>=1.35",
+    "ruff>=0.9",
+    "black>=24.0",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oapif"]
+
+# --- Ruff ---
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+src = ["src", "tests", "deploy"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "T20", # flake8-print
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line length handled by formatter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["oapif"]
+
+# --- Black ---
+[tool.black]
+target-version = ["py314"]
+line-length = 120
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (no external dependencies)",
+    "integration: Integration tests (requires DynamoDB Local)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+addopts = "-v --tb=short"
+
+# --- Mypy ---
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "aws_cdk.*",
+    "constructs.*",
+    "aws_lambda_powertools.*",
+    "moto.*",
+]
+ignore_missing_imports = true
+
+# --- Coverage ---
+[tool.coverage.run]
+source = ["src/oapif"]
+omit = ["tests/*", "deploy/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]

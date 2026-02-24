@@ -1,0 +1,22 @@
+# Docker Compose for the DevContainer.
+# Provides the development container (Python 3.14) and DynamoDB Local.
+#
+# This file is referenced by .devcontainer/devcontainer.json.
+# It is NOT the same as the root docker-compose.yml.
+
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:3.14
+    volumes:
+      - ..:/workspaces/OAPIFServerless:cached
+    command: sleep infinity
+    depends_on:
+      - dynamodb-local
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    working_dir: /home/dynamodblocal
+    restart: unless-stopped

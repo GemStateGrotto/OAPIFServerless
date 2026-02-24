@@ -1,3 +1,5 @@
 {
     "files.autoSave": "afterDelay"
+    // All other settings are defined in .devcontainer/devcontainer.json
+    // and applied automatically when the DevContainer is running.
 }

@@ -1,0 +1,15 @@
+# Standalone DynamoDB Local for use outside the DevContainer.
+# The DevContainer has its own docker-compose at .devcontainer/docker-compose.yml.
+#
+# Usage: docker compose up -d
+# DynamoDB Local will be available at http://localhost:8000.
+
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: oapif-dynamodb-local
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    working_dir: /home/dynamodblocal
+    restart: unless-stopped

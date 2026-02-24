@@ -1,0 +1,66 @@
+// DevContainer configuration for OAPIFServerless.
+//
+// Provides Python 3.14, Node.js 22 (for CDK CLI), and DynamoDB Local.
+// All dependencies are installed automatically on container creation.
+{
+    "name": "OAPIFServerless",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspaces/OAPIFServerless",
+
+    // VS Code features installed inside the container
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "22"
+        },
+        "ghcr.io/devcontainers/features/aws-cli:1": {}
+    },
+
+    // Extensions installed in the container VS Code Server
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "ms-python.mypy-type-checker",
+                "ms-python.debugpy",
+                "redhat.vscode-yaml",
+                "amazonwebservices.aws-toolkit-vscode"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll.ruff": "explicit",
+                        "source.organizeImports.ruff": "explicit"
+                    }
+                },
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": ["tests"],
+                "search.exclude": {
+                    "**/__pycache__": true,
+                    "cdk.out": true,
+                    ".venv": true
+                },
+                "files.autoSave": "afterDelay"
+            }
+        }
+    },
+
+    // Install project dependencies after container creation
+    "postCreateCommand": "pip install -e '.[cdk,dev]' && npm install -g aws-cdk",
+
+    // Environment variables available inside the container
+    "containerEnv": {
+        "DYNAMODB_LOCAL_ENDPOINT": "http://dynamodb-local:8000",
+        "AWS_ACCESS_KEY_ID": "testing",
+        "AWS_SECRET_ACCESS_KEY": "testing",
+        "AWS_DEFAULT_REGION": "us-west-2"
+    },
+
+    // Run as non-root inside the container
+    "remoteUser": "vscode"
+}

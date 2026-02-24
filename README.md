@@ -17,7 +17,7 @@ OAPIFServerless provides a low-cost, usage-based geospatial feature server that 
 - **Field-Level Authorization:** Server-enforced controls that allow some groups to edit feature geometry/attributes while others can only manage group membership metadata
 - **Dynamic Schema Publishing:** Each configured collection publishes its schema at `/collections/{collectionId}/schema`, enabling clients to discover field names, types, and constraints at runtime
 - **QGIS Plugin:** A companion QGIS plugin that authenticates via OIDC/Cognito, supports downloading and uploading QGIS project files to S3, and connects to OAPIFServerless feature layers
-- **Complete Deployment System:** Infrastructure-as-Code (CDK/SAM) that anyone can deploy to their own AWS organization
+- **Complete Deployment System:** Infrastructure-as-Code (AWS CDK, Python) that anyone can deploy to their own AWS account
 
 ### Version Roadmap
 
@@ -59,7 +59,7 @@ OAPIFServerless provides a low-cost, usage-based geospatial feature server that 
 | **DynamoDB** | Feature storage, change tracking, collection configuration |
 | **Cognito** | User pool, OIDC provider, group-based access control |
 | **S3** | QGIS project file storage |
-| **CloudFormation / CDK** | Infrastructure-as-Code deployment |
+| **CloudFormation / CDK** | Infrastructure-as-Code deployment (CDK Python) |
 
 ## OGC API - Features Compliance
 
@@ -196,25 +196,58 @@ The companion QGIS plugin (`oapif-qgis-plugin/`) provides:
 
 ## Deployment
 
-The project includes a complete IaC deployment system targeting any AWS organization:
+The project uses AWS CDK (Python) with a two-stack architecture that separates stateful data resources from stateless compute resources:
+
+| Stack | Resources | Destroy-safe? |
+|-------|-----------|---------------|
+| `oapif-{env}-data` | DynamoDB tables, S3 bucket | **Dev:** yes. **Staging/Prod:** no — `RETAIN` policy + termination protection |
+| `oapif-{env}-api` | Lambda, API Gateway | Always safe to destroy and redeploy |
+
+This separation means you can iterate on Lambda code and API routes without risking your data. In production, DynamoDB tables and the S3 bucket are protected by `RemovalPolicy.RETAIN` and stack termination protection.
+
+### Prerequisites
+
+- AWS CLI configured with appropriate credentials
+- Node.js 22+ (for CDK CLI)
+- Python 3.14+ (provided by the DevContainer)
+
+### Quick Start
 
 ```bash
-# Prerequisites: AWS CLI configured, Node.js, Python 3.11+
-cd deploy/
-npm install          # CDK dependencies
-npx cdk bootstrap    # First-time only
-npx cdk deploy       # Deploy all stacks
+# First-time setup (once per AWS account/region)
+npx cdk bootstrap --app "python deploy/app.py"
+
+# Deploy all stacks
+npx cdk deploy --app "python deploy/app.py" --all
+
+# Deploy only the API stack (fast iteration on Lambda code, ~15-30s)
+npx cdk deploy --app "python deploy/app.py" oapif-dev-api
+
+# Preview changes before deploying
+npx cdk diff --app "python deploy/app.py" oapif-dev-api
 ```
 
-The deployment creates:
-- Cognito User Pool with OIDC configuration
-- API Gateway HTTP API with JWT authorizer
-- Lambda functions for OAPIF endpoints
-- DynamoDB tables for features, change tracking, and configuration
-- S3 bucket for QGIS project files
-- IAM roles with least-privilege policies
+### Configuration
 
-Configuration is driven by a YAML/JSON config file that defines collections, their schemas, access control mappings, and deployment parameters.
+Deployment parameters are configured via environment variables (`OAPIF_*` prefix) or CDK context (`--context key=value`). Defaults are defined in `deploy/config.py`. See `.env.example` for the full list.
+
+### Production Deploys
+
+CDK deploys are incremental — only changed resources are updated. A typical Lambda code fix deploys in ~15-30 seconds. DynamoDB tables and S3 buckets are never modified or deleted during API stack updates.
+
+```bash
+# Deploy a fix to production (only touches Lambda + API Gateway)
+OAPIF_ENVIRONMENT=prod npx cdk deploy --app "python deploy/app.py" oapif-prod-api
+```
+
+### What Gets Created
+
+- DynamoDB tables: features, change tracking, collection configuration
+- S3 bucket for QGIS project files
+- Lambda function for OAPIF endpoints
+- API Gateway HTTP API
+- Cognito User Pool with OIDC configuration (Phase 4)
+- IAM roles with least-privilege policies
 
 ## Prior Art and Inspiration
 
