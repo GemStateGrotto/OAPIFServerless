@@ -12,6 +12,7 @@ from typing import Any
 
 import boto3
 
+from oapif.auth import AuthContext, resolve_auth_context
 from oapif.config import RuntimeConfig
 from oapif.dal.collections import CollectionDAL
 from oapif.dal.exceptions import CollectionNotFoundError, FeatureNotFoundError
@@ -281,19 +282,10 @@ def handle_items(
     bbox = _parse_bbox(params["bbox"]) if "bbox" in params else None
     datetime_filter = params.get("datetime")
 
-    # Organization scoping — for Phase 4/5 this will come from JWT;
-    # for now require it as a query parameter for unauthenticated flow.
-    organization = params.get("organization", "")
-    if not organization:
-        return error_response(
-            400,
-            "Missing required parameter",
-            detail="Query parameter 'organization' is required.",
-        )
-
-    # Visibility filter — unauthenticated users see only public.
-    # Phase 5 will build richer filters from Cognito groups.
-    visibility_filter = ["public"]
+    # Resolve authentication and authorization context
+    auth: AuthContext = resolve_auth_context(event, query_params=params)
+    organization = auth.organization
+    visibility_filter = list(auth.visibility_filter)
 
     # Known non-property params to exclude from property filters
     reserved = {"limit", "cursor", "bbox", "datetime", "organization", "f"}
@@ -364,13 +356,9 @@ def handle_feature(
     feature_id = path_params["featureId"]
     params = _get_query_params(event)
 
-    organization = params.get("organization", "")
-    if not organization:
-        return error_response(
-            400,
-            "Missing required parameter",
-            detail="Query parameter 'organization' is required.",
-        )
+    # Resolve authentication and authorization context
+    auth: AuthContext = resolve_auth_context(event, query_params=params)
+    organization = auth.organization
 
     feat_dal = _get_feature_dal()
     try:

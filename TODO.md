@@ -64,19 +64,19 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 4: Authentication and Authorization Infrastructure
 
-- [ ] Define Cognito User Pool with OIDC configuration (CDK)
-  - [ ] Configure hosted UI domain for OIDC authorization code flow
-  - [ ] Define app client for QGIS plugin (PKCE, authorization code flow)
-  - [ ] Define app client for machine-to-machine (client credentials, optional)
-- [ ] Define Cognito groups matching access control model:
-  - [ ] Organization groups (one per org, e.g., `org:GemStateGrotto`)
-  - [ ] Visibility-level groups within each org (e.g., `GemStateGrotto:restricted`, `GemStateGrotto:members`)
-  - [ ] Role groups (e.g., `editor`, `admin`, `viewer`, per-collection variants)
-- [ ] Configure API Gateway with optional JWT authorizer (allow unauthenticated GET requests)
-- [ ] Implement Lambda middleware to extract and validate Cognito claims and group memberships
-- [ ] Implement unauthenticated path: require `organization` query parameter, restrict to `public` visibility
-- [ ] For authenticated requests, derive org from JWT; validate `organization` param if provided
-- [ ] Write tests for token parsing, group extraction, and unauthenticated org-parameter flow
+- [x] Define Cognito User Pool with OIDC configuration (CDK)
+  - [x] Configure hosted UI domain for OIDC authorization code flow
+  - [x] Define app client for QGIS plugin (PKCE, authorization code flow)
+  - [x] Define app client for machine-to-machine (client credentials, optional)
+- [x] Define Cognito groups matching access control model:
+  - [x] Organization groups (one per org, e.g., `org:GemStateGrotto`)
+  - [x] Visibility-level groups within each org (e.g., `GemStateGrotto:restricted`, `GemStateGrotto:members`)
+  - [x] Role groups (e.g., `editor`, `admin`, `viewer`, per-collection variants)
+- [x] Configure API Gateway with optional JWT authorizer (allow unauthenticated GET requests)
+- [x] Implement Lambda middleware to extract and validate Cognito claims and group memberships
+- [x] Implement unauthenticated path: require `organization` query parameter, restrict to `public` visibility
+- [x] For authenticated requests, derive org from JWT; validate `organization` param if provided
+- [x] Write tests for token parsing, group extraction, and unauthenticated org-parameter flow
 
 ## Phase 5: Row-Level Access Control
 
@@ -152,8 +152,8 @@ This document tracks the full build-out of the project. Phases are roughly seque
 - [x] Define CDK stack architecture: `DataStack` (stateful) + `ApiStack` (stateless)
 - [x] Implement `RemovalPolicy.RETAIN` and termination protection for non-dev environments
 - [x] Implement deployment config via environment variables (`OAPIF_*`) and CDK context
-- [ ] Finalize CDK stacks:
-  - [ ] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
+- [x] Finalize CDK stacks:
+  - [x] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
   - [x] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
 - [ ] Create deployment CLI or Makefile with `bootstrap`, `deploy`, `destroy` commands
 - [ ] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)

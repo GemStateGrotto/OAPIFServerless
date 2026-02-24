@@ -21,6 +21,8 @@ class RuntimeConfig:
     aws_region: str
     environment: str
     log_level: str
+    cognito_user_pool_id: str
+    cognito_region: str
 
     @classmethod
     def from_env(cls) -> RuntimeConfig:
@@ -33,4 +35,6 @@ class RuntimeConfig:
             aws_region=os.environ.get("AWS_REGION", "us-west-2"),
             environment=os.environ.get("ENVIRONMENT", "dev"),
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
+            cognito_user_pool_id=os.environ.get("COGNITO_USER_POOL_ID", ""),
+            cognito_region=os.environ.get("COGNITO_REGION", ""),
         )

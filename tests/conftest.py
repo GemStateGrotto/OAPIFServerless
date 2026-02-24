@@ -60,6 +60,8 @@ def lambda_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
         "ENVIRONMENT": "test",
         "LOG_LEVEL": "DEBUG",
         "AWS_REGION": "us-east-1",
+        "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+        "COGNITO_REGION": "us-east-1",
     }
     for key, value in env.items():
         monkeypatch.setenv(key, value)

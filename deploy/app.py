@@ -22,6 +22,7 @@ import aws_cdk as cdk
 
 from deploy.config import load_deployment_config
 from deploy.stacks.api import ApiStack
+from deploy.stacks.auth import AuthStack
 from deploy.stacks.data import DataStack
 
 app = cdk.App()
@@ -41,6 +42,14 @@ data_stack = DataStack(
     env=env,
 )
 
+# --- Auth stack: Cognito User Pool, clients, groups ---
+auth_stack = AuthStack(
+    app,
+    f"{config.stack_prefix}-{config.environment}-auth",
+    config=config,
+    env=env,
+)
+
 # --- Stateless stack: Lambda + API Gateway ---
 # Can be destroyed and redeployed freely without affecting data.
 api_stack = ApiStack(
@@ -51,10 +60,10 @@ api_stack = ApiStack(
     changes_table=data_stack.changes_table,
     config_table=data_stack.config_table,
     project_bucket=data_stack.project_bucket,
+    user_pool=auth_stack.user_pool,
     env=env,
 )
 api_stack.add_dependency(data_stack)
-
-# Future: AuthStack for Cognito (Phase 4)
+api_stack.add_dependency(auth_stack)
 
 app.synth()

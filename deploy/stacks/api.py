@@ -18,7 +18,13 @@ from aws_cdk import (
     aws_apigatewayv2 as apigwv2,
 )
 from aws_cdk import (
+    aws_apigatewayv2_authorizers as apigwv2_authz,
+)
+from aws_cdk import (
     aws_apigatewayv2_integrations as apigwv2_integrations,
+)
+from aws_cdk import (
+    aws_cognito as cognito,
 )
 from aws_cdk import (
     aws_dynamodb as dynamodb,
@@ -48,6 +54,7 @@ class ApiStack(cdk.Stack):
         changes_table: dynamodb.ITable,
         config_table: dynamodb.ITable,
         project_bucket: s3.IBucket,
+        user_pool: cognito.IUserPool,
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -68,6 +75,8 @@ class ApiStack(cdk.Stack):
                 "PROJECT_BUCKET": project_bucket.bucket_name,
                 "ENVIRONMENT": config.environment,
                 "LOG_LEVEL": config.lambda_log_level,
+                "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
+                "COGNITO_REGION": cdk.Stack.of(self).region,
             },
         )
 
@@ -85,6 +94,24 @@ class ApiStack(cdk.Stack):
             description="OGC API - Features endpoint",
         )
 
+        # --- JWT Authorizer (Cognito) ---
+        # The authorizer validates JWTs but does NOT block unauthenticated
+        # requests on GET routes.  API Gateway passes claims when present;
+        # Lambda handles the unauthenticated vs authenticated logic.
+        issuer_url = f"https://cognito-idp.{cdk.Stack.of(self).region}.amazonaws.com/{user_pool.user_pool_id}"
+
+        jwt_authorizer = apigwv2_authz.HttpJwtAuthorizer(
+            "OapifJwtAuthorizer",
+            jwt_issuer=issuer_url,
+            jwt_audience=[
+                # Both app clients are valid audiences
+                # Note: Cognito access tokens use the user pool client ID as audience
+                # We'll be permissive here; Lambda validates further
+                user_pool.user_pool_id,
+            ],
+            identity_source="$request.header.Authorization",
+        )
+
         # Lambda integration for all routes
         lambda_integration = apigwv2_integrations.HttpLambdaIntegration(
             "OapifLambdaIntegration",
@@ -92,6 +119,12 @@ class ApiStack(cdk.Stack):
         )
 
         # --- Read routes (Phase 3: OGC API - Features Part 1 Core) ---
+        # GET routes allow unauthenticated access (no authorizer).
+        # The Lambda handler enforces the unauthenticated path:
+        #   - require 'organization' query param
+        #   - restrict to public visibility
+        # When a valid JWT is present, API Gateway passes claims to Lambda
+        # via requestContext.authorizer.jwt (even without a mandatory authorizer).
         read_routes: list[tuple[str, str]] = [
             ("GET", "/"),
             ("GET", "/conformance"),
@@ -108,9 +141,17 @@ class ApiStack(cdk.Stack):
                 path=path,
                 methods=[apigwv2.HttpMethod(method)],
                 integration=lambda_integration,
+                # No authorizer — GET routes allow unauthenticated access.
+                # Lambda handles auth logic based on presence of JWT claims.
             )
 
-        # Write routes will be added in Phase 6.
+        # Write routes (Phase 6) will require the JWT authorizer:
+        # self.api.add_routes(
+        #     ...,
+        #     authorizer=jwt_authorizer,
+        # )
+        # Store authorizer for Phase 6 to reference
+        self._jwt_authorizer = jwt_authorizer
 
         # --- Outputs ---
         cdk.CfnOutput(self, "ApiUrl", value=self.api.url or "")

@@ -12,6 +12,7 @@ import logging
 import re
 from typing import Any
 
+from oapif.auth import AuthError
 from oapif.handlers.responses import error_response
 from oapif.handlers.routes import (
     handle_api,
@@ -96,6 +97,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     path_params=match.groupdict(),
                 )
                 return result
+            except AuthError as exc:
+                return error_response(exc.status_code, exc.message, detail=exc.detail)
             except Exception:
                 logger.exception("Unhandled error in route handler")
                 return error_response(500, "Internal Server Error")
