@@ -18,6 +18,9 @@ from aws_cdk import (
     aws_apigatewayv2 as apigwv2,
 )
 from aws_cdk import (
+    aws_apigatewayv2_integrations as apigwv2_integrations,
+)
+from aws_cdk import (
     aws_dynamodb as dynamodb,
 )
 from aws_cdk import (
@@ -82,8 +85,32 @@ class ApiStack(cdk.Stack):
             description="OGC API - Features endpoint",
         )
 
-        # Routes will be added in Phase 3 (read endpoints) and Phase 6 (write endpoints).
-        # For now the API and Lambda exist but have no routes wired up.
+        # Lambda integration for all routes
+        lambda_integration = apigwv2_integrations.HttpLambdaIntegration(
+            "OapifLambdaIntegration",
+            handler=self.handler,
+        )
+
+        # --- Read routes (Phase 3: OGC API - Features Part 1 Core) ---
+        read_routes: list[tuple[str, str]] = [
+            ("GET", "/"),
+            ("GET", "/conformance"),
+            ("GET", "/api"),
+            ("GET", "/collections"),
+            ("GET", "/collections/{collectionId}"),
+            ("GET", "/collections/{collectionId}/items"),
+            ("GET", "/collections/{collectionId}/items/{featureId}"),
+            ("GET", "/collections/{collectionId}/schema"),
+        ]
+
+        for method, path in read_routes:
+            self.api.add_routes(
+                path=path,
+                methods=[apigwv2.HttpMethod(method)],
+                integration=lambda_integration,
+            )
+
+        # Write routes will be added in Phase 6.
 
         # --- Outputs ---
         cdk.CfnOutput(self, "ApiUrl", value=self.api.url or "")

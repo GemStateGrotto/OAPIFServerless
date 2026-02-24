@@ -47,20 +47,20 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 3: OAPIF Core (Read) Endpoints
 
-- [ ] Implement Lambda request handler (API Gateway HTTP API event → response)
-- [ ] Implement OAPIF Part 1 endpoints:
-  - [ ] `GET /` — Landing page with required links (self, service-desc, service-doc, conformance, data)
-  - [ ] `GET /conformance` — Conformance declaration
-  - [ ] `GET /api` — OpenAPI 3.0 definition (dynamically generated from collection configs)
-  - [ ] `GET /collections` — List all collections with extent, links, itemType
-  - [ ] `GET /collections/{collectionId}` — Single collection metadata
-  - [ ] `GET /collections/{collectionId}/items` — Feature collection with paging, bbox, datetime, property filters
-  - [ ] `GET /collections/{collectionId}/items/{featureId}` — Single feature with ETag header
-  - [ ] `GET /collections/{collectionId}/schema` — JSON Schema for the collection
-- [ ] Implement content negotiation (GeoJSON primary; JSON for non-feature resources)
-- [ ] Implement `Link` headers and response link objects (self, alternate, next, collection)
-- [ ] Implement `numberMatched` / `numberReturned` / `timeStamp` in collection responses
-- [ ] Write integration tests against DynamoDB Local for all read endpoints
+- [x] Implement Lambda request handler (API Gateway HTTP API event → response)
+- [x] Implement OAPIF Part 1 endpoints:
+  - [x] `GET /` — Landing page with required links (self, service-desc, service-doc, conformance, data)
+  - [x] `GET /conformance` — Conformance declaration
+  - [x] `GET /api` — OpenAPI 3.0 definition (dynamically generated from collection configs)
+  - [x] `GET /collections` — List all collections with extent, links, itemType
+  - [x] `GET /collections/{collectionId}` — Single collection metadata
+  - [x] `GET /collections/{collectionId}/items` — Feature collection with paging, bbox, datetime, property filters
+  - [x] `GET /collections/{collectionId}/items/{featureId}` — Single feature with ETag header
+  - [x] `GET /collections/{collectionId}/schema` — JSON Schema for the collection
+- [x] Implement content negotiation (GeoJSON primary; JSON for non-feature resources)
+- [x] Implement `Link` headers and response link objects (self, alternate, next, collection)
+- [x] Implement `numberMatched` / `numberReturned` / `timeStamp` in collection responses
+- [x] Write integration tests against DynamoDB Local for all read endpoints
 
 ## Phase 4: Authentication and Authorization Infrastructure
 
@@ -154,7 +154,7 @@ This document tracks the full build-out of the project. Phases are roughly seque
 - [x] Implement deployment config via environment variables (`OAPIF_*`) and CDK context
 - [ ] Finalize CDK stacks:
   - [ ] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
-  - [ ] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
+  - [x] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
 - [ ] Create deployment CLI or Makefile with `bootstrap`, `deploy`, `destroy` commands
 - [ ] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)
 - [ ] Test full deploy-from-scratch on a clean AWS account
