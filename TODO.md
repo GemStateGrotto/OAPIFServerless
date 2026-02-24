@@ -30,20 +30,20 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 2: Collection Configuration and Schema
 
-- [ ] Design collection configuration format defining:
-  - [ ] Collection ID, title, description, extent
-  - [ ] Feature schema (property names, types, required fields, enums)
-  - [ ] `visibility` enum values for this collection
-  - [ ] Organization-to-Cognito-group mapping
-  - [ ] Access control group mappings
-- [ ] Implement config loader (read from DynamoDB config table)
-- [ ] Implement dynamic schema endpoint (`/collections/{collectionId}/schema`) returning JSON Schema
-  - [ ] Mark `id` as `readOnly`
-  - [ ] Mark geometry role with `x-ogc-role: primary-geometry`
-  - [ ] Include `visibility` as enum per collection config
-  - [ ] Include `organization` as read-only / server-populated field
-  - [ ] Distinguish returnables vs receivables per Part 5
-- [ ] Write tests for schema generation
+- [x] Design collection configuration format defining:
+  - [x] Collection ID, title, description, extent
+  - [x] Feature schema (property names, types, required fields, enums)
+  - [x] `visibility` enum values for this collection
+  - [x] Organization-to-Cognito-group mapping
+  - [x] Access control group mappings
+- [x] Implement config loader (read from DynamoDB config table)
+- [x] Implement dynamic schema endpoint (`/collections/{collectionId}/schema`) returning JSON Schema
+  - [x] Mark `id` as `readOnly`
+  - [x] Mark geometry role with `x-ogc-role: primary-geometry`
+  - [x] Include `visibility` as enum per collection config
+  - [x] Include `organization` as read-only / server-populated field
+  - [x] Distinguish returnables vs receivables per Part 5
+- [x] Write tests for schema generation
 
 ## Phase 3: OAPIF Core (Read) Endpoints
 

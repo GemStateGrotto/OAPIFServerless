@@ -25,3 +25,11 @@ class ETagRequiredError(Exception):
 
     def __init__(self) -> None:
         super().__init__("If-Match header with ETag is required for this operation")
+
+
+class CollectionNotFoundError(Exception):
+    """Raised when a requested collection configuration does not exist."""
+
+    def __init__(self, collection_id: str) -> None:
+        self.collection_id = collection_id
+        super().__init__(f"Collection '{collection_id}' not found")
