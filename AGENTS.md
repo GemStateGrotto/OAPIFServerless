@@ -103,6 +103,7 @@ cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 ## Commits & PRs
 
+- **Do not commit unless explicitly directed by the user.** Never push or write to upstream.
 - Imperative, concise commit messages ("Add schema endpoint", not "Added schema endpoint")
 - One logical change per commit
 - PRs must include tests for new behavior

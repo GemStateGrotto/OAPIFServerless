@@ -11,6 +11,7 @@ This document tracks the full build-out of the project. Phases are roughly seque
 - [x] Set up Python project structure with `pyproject.toml`, linting (ruff), and formatting (black)
 - [x] Set up pytest with DynamoDB Local for integration tests
 - [x] Create CI pipeline (GitHub Actions) for lint, test, and deploy
+- [ ] Re-enable `--cov-fail-under=80` for integration test CI job once integration tests exist
 - [x] Define environment variable / config schema for deployment parameters
 
 ## Phase 1: DynamoDB Data Layer
