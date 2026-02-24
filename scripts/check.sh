@@ -45,7 +45,7 @@ else
 fi
 
 # --- mypy ---
-run_check "mypy" mypy src/
+run_check "mypy" mypy src/ deploy/
 
 # --- Tests with coverage ---
 run_check "unit tests"        pytest tests/unit -m unit --cov=src/oapif --cov-report=term-missing --cov-fail-under=80 -q

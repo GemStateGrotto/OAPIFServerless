@@ -8,7 +8,7 @@ Lambda code changes deploy in ~15-30 seconds via incremental updates.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import (
@@ -55,7 +55,7 @@ class ApiStack(cdk.Stack):
         config_table: dynamodb.ITable,
         project_bucket: s3.IBucket,
         user_pool: cognito.IUserPool,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -109,7 +109,7 @@ class ApiStack(cdk.Stack):
                 # We'll be permissive here; Lambda validates further
                 user_pool.user_pool_id,
             ],
-            identity_source="$request.header.Authorization",
+            identity_source=["$request.header.Authorization"],
         )
 
         # Lambda integration for all routes

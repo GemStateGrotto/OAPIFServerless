@@ -359,10 +359,16 @@ def handle_feature(
     # Resolve authentication and authorization context
     auth: AuthContext = resolve_auth_context(event, query_params=params)
     organization = auth.organization
+    visibility_filter = list(auth.visibility_filter)
 
     feat_dal = _get_feature_dal()
     try:
-        feature = feat_dal.get_feature(collection_id, feature_id, organization)
+        feature = feat_dal.get_feature(
+            collection_id,
+            feature_id,
+            organization,
+            visibility_filter=visibility_filter,
+        )
     except FeatureNotFoundError:
         return error_response(404, "Feature not found", detail=f"Feature '{feature_id}' not found.")
 

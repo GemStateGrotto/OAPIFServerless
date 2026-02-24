@@ -33,3 +33,14 @@ class CollectionNotFoundError(Exception):
     def __init__(self, collection_id: str) -> None:
         self.collection_id = collection_id
         super().__init__(f"Collection '{collection_id}' not found")
+
+
+class OrganizationImmutableError(Exception):
+    """Raised when a request attempts to change the organization field.
+
+    The ``organization`` field is server-populated on creation and
+    must never be modified.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("The 'organization' field is immutable and cannot be changed")

@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from oapif.dal.exceptions import ETagMismatchError, FeatureNotFoundError
+from oapif.dal.exceptions import ETagMismatchError, FeatureNotFoundError, OrganizationImmutableError
 from oapif.dal.features import FeatureDAL, _json_merge_patch
 from oapif.dal.pagination import decode_cursor, encode_cursor
 
@@ -362,13 +362,12 @@ class TestUpdateFeature:
         updated = dal.update_feature(COLLECTION, original.id, patch, original.etag, ORG)
         assert updated.visibility == "members"
 
-    def test_ignores_organization_in_patch(self, dal: FeatureDAL) -> None:
+    def test_rejects_organization_change_in_patch(self, dal: FeatureDAL) -> None:
         original = dal.create_feature(COLLECTION, _point_feature(), ORG)
 
         patch: dict[str, Any] = {"properties": {"organization": "evil-org"}}
-        updated = dal.update_feature(COLLECTION, original.id, patch, original.etag, ORG)
-        assert updated.organization == ORG
-        assert "organization" not in updated.properties
+        with pytest.raises(OrganizationImmutableError):
+            dal.update_feature(COLLECTION, original.id, patch, original.etag, ORG)
 
 
 # ======================================================================

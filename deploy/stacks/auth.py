@@ -8,7 +8,7 @@ the access control model.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import (
@@ -29,7 +29,7 @@ class AuthStack(cdk.Stack):
         construct_id: str,
         *,
         config: DeploymentConfig,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 

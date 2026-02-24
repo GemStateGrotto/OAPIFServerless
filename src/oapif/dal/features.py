@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING, Any
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
-from oapif.dal.exceptions import ETagMismatchError, FeatureNotFoundError
+from oapif.dal.exceptions import (
+    ETagMismatchError,
+    FeatureNotFoundError,
+    OrganizationImmutableError,
+)
 from oapif.dal.pagination import decode_cursor, encode_cursor
 from oapif.models.feature import (
     ChangeRecord,
@@ -135,6 +139,7 @@ class FeatureDAL:
         collection_id: str,
         feature_id: str,
         organization: str,
+        visibility_filter: list[str] | None = None,
     ) -> Feature:
         """Retrieve a single feature by ID.
 
@@ -146,6 +151,11 @@ class FeatureDAL:
             The feature's unique identifier.
         organization:
             Organization scope (hard tenant boundary).
+        visibility_filter:
+            Allowed visibility levels for the caller.  If provided and
+            the feature's visibility is not in this set, a
+            ``FeatureNotFoundError`` is raised (returns 404, not 403,
+            to avoid leaking the existence of restricted features).
 
         Returns
         -------
@@ -155,7 +165,8 @@ class FeatureDAL:
         Raises
         ------
         FeatureNotFoundError
-            If the feature does not exist or has been soft-deleted.
+            If the feature does not exist, has been soft-deleted, or
+            the caller's visibility level is insufficient.
         """
         response = self._features_table.get_item(
             Key={
@@ -170,6 +181,10 @@ class FeatureDAL:
 
         feature = Feature.from_dynamodb_item(item)
         if feature.deleted:
+            raise FeatureNotFoundError(collection_id, feature_id)
+
+        # Visibility check — return 404 (not 403) to avoid leaking existence
+        if visibility_filter and feature.visibility not in visibility_filter:
             raise FeatureNotFoundError(collection_id, feature_id)
 
         return feature
@@ -282,7 +297,34 @@ class FeatureDAL:
             }
             next_cursor = encode_cursor(cursor_key)
 
-        return QueryResult(features=features, next_cursor=next_cursor)
+        # Compute numberMatched: count remaining items without fetching them
+        number_matched = len(collected)
+        if has_more_in_dynamo:
+            count_pages = 0
+            while has_more_in_dynamo and count_pages < _MAX_QUERY_PAGES:
+                count_pages += 1
+                count_kwargs: dict[str, Any] = {
+                    "KeyConditionExpression": key_condition,
+                    "FilterExpression": filter_expr,
+                    "Select": "COUNT",
+                }
+                if exclusive_start_key:
+                    count_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+                count_resp = self._features_table.query(**count_kwargs)
+                number_matched += count_resp.get("Count", 0)
+
+                last_key = count_resp.get("LastEvaluatedKey")
+                if last_key:
+                    exclusive_start_key = last_key
+                else:
+                    has_more_in_dynamo = False
+
+        # bbox is post-filtered so numberMatched may over-count; when bbox
+        # is active we report None to avoid misleading clients.
+        effective_matched: int | None = None if bbox else number_matched
+
+        return QueryResult(features=features, next_cursor=next_cursor, number_matched=effective_matched)
 
     # ------------------------------------------------------------------
     # REPLACE (PUT)
@@ -330,7 +372,11 @@ class FeatureDAL:
 
         properties = dict(feature_data.get("properties") or {})
         visibility = properties.pop("visibility", current.visibility)
-        properties.pop("organization", None)
+
+        # Reject attempts to change the immutable organization field
+        supplied_org = properties.pop("organization", None)
+        if supplied_org is not None and supplied_org != organization:
+            raise OrganizationImmutableError()
 
         updated = Feature(
             id=feature_id,
@@ -408,7 +454,11 @@ class FeatureDAL:
 
         # Extract server-managed visibility from merged properties
         new_visibility = new_properties.pop("visibility", current.visibility)
-        new_properties.pop("organization", None)
+
+        # Reject attempts to change the immutable organization field
+        supplied_org = new_properties.pop("organization", None)
+        if supplied_org is not None and supplied_org != organization:
+            raise OrganizationImmutableError()
 
         now = utcnow_iso()
         new_etag = generate_etag()

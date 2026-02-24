@@ -80,16 +80,16 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 5: Row-Level Access Control
 
-- [ ] Implement organization tenant scoping: extract caller's org from JWT (authenticated) or `organization` query param (unauthenticated), scope all queries to that org (hard boundary, never cross-org)
-- [ ] For unauthenticated requests: require `organization` query parameter, enforce `visibility = public` only
-- [ ] For authenticated requests: derive org from Cognito groups, validate `organization` param if provided
-- [ ] Auto-populate `organization` on feature creation from caller's Cognito org group
-- [ ] Reject PUT/PATCH attempts to change `organization` field
-- [ ] Implement visibility filter builder: given a user's Cognito groups, build a filter for `visibility` within the org
-- [ ] Apply org + visibility filters in `query_features` and `get_feature` DAL methods (filter at query time, not post-query)
-- [ ] Return `404` (not `403`) when a user requests a specific feature they cannot see
-- [ ] Ensure `numberMatched` and collection extents reflect only visible features within the caller's org and visibility level
-- [ ] Write tests: unauthenticated user with `organization=X` sees only `public` items; user in org X never sees org Y features; user with `members` access sees `public` + `members` but not `restricted`
+- [x] Implement organization tenant scoping: extract caller's org from JWT (authenticated) or `organization` query param (unauthenticated), scope all queries to that org (hard boundary, never cross-org)
+- [x] For unauthenticated requests: require `organization` query parameter, enforce `visibility = public` only
+- [x] For authenticated requests: derive org from Cognito groups, validate `organization` param if provided
+- [x] Auto-populate `organization` on feature creation from caller's Cognito org group
+- [x] Reject PUT/PATCH attempts to change `organization` field
+- [x] Implement visibility filter builder: given a user's Cognito groups, build a filter for `visibility` within the org
+- [x] Apply org + visibility filters in `query_features` and `get_feature` DAL methods (filter at query time, not post-query)
+- [x] Return `404` (not `403`) when a user requests a specific feature they cannot see
+- [x] Ensure `numberMatched` and collection extents reflect only visible features within the caller's org and visibility level
+- [x] Write tests: unauthenticated user with `organization=X` sees only `public` items; user in org X never sees org Y features; user with `members` access sees `public` + `members` but not `restricted`
 
 ## Phase 6: OAPIF Part 4 (Write) Endpoints
 
