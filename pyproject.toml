@@ -32,6 +32,7 @@ dev = [
     "ruff>=0.9",
     "black>=24.0",
     "mypy>=1.13",
+    "types-jsonschema>=4.23",
     "pre-commit>=4.0",
 ]
 
