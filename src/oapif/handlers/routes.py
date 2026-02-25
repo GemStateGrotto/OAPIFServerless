@@ -15,7 +15,14 @@ from typing import Any
 import boto3
 import jsonschema
 
-from oapif.auth import AuthContext, resolve_auth_context
+from oapif.auth import (
+    AuthContext,
+    check_field_permissions_for_create,
+    check_field_permissions_for_replace,
+    check_field_permissions_for_update,
+    require_write_role,
+    resolve_auth_context,
+)
 from oapif.config import RuntimeConfig
 from oapif.dal.collections import CollectionDAL
 from oapif.dal.exceptions import (
@@ -644,6 +651,7 @@ def handle_create_feature(
 
     # Require authentication for write operations
     auth = _require_auth(event, params)
+    require_write_role(auth)
 
     # Validate collection exists
     col_dal = _get_collection_dal()
@@ -660,6 +668,9 @@ def handle_create_feature(
 
     if body is None:
         return error_response(400, "Missing request body", detail="POST request requires a JSON body.")
+
+    # Field-level authorization (editors cannot set visibility)
+    check_field_permissions_for_create(auth, body)
 
     # Schema validation
     validation_error = _validate_feature_body(body, config)
@@ -715,6 +726,7 @@ def handle_replace_feature(
     params = _get_query_params(event)
 
     auth = _require_auth(event, params)
+    require_write_role(auth)
 
     # Validate collection exists
     col_dal = _get_collection_dal()
@@ -742,7 +754,14 @@ def handle_replace_feature(
     if validation_error:
         return error_response(422, "Schema validation failed", detail=validation_error)
 
+    # Field-level authorization: fetch existing feature to compare visibility
     feat_dal = _get_feature_dal()
+    try:
+        existing = feat_dal.get_feature(collection_id, feature_id, auth.organization)
+    except FeatureNotFoundError:
+        return error_response(404, "Feature not found", detail=f"Feature '{feature_id}' not found.")
+    check_field_permissions_for_replace(auth, body, existing.visibility)
+
     try:
         feature = feat_dal.replace_feature(
             collection_id=collection_id,
@@ -797,6 +816,7 @@ def handle_update_feature(
     params = _get_query_params(event)
 
     auth = _require_auth(event, params)
+    require_write_role(auth)
 
     # Validate collection exists
     col_dal = _get_collection_dal()
@@ -819,6 +839,9 @@ def handle_update_feature(
 
     if body is None:
         return error_response(400, "Missing request body", detail="PATCH request requires a JSON body.")
+
+    # Field-level authorization (editors cannot change visibility)
+    check_field_permissions_for_update(auth, body)
 
     feat_dal = _get_feature_dal()
     try:
@@ -875,6 +898,7 @@ def handle_delete_feature(
     params = _get_query_params(event)
 
     auth = _require_auth(event, params)
+    require_write_role(auth)
 
     # Require If-Match
     try:

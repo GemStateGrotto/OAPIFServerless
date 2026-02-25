@@ -108,14 +108,14 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 7: Field-Level Authorization
 
-- [ ] Define field-level permission model:
-  - [ ] `editor` groups can modify geometry + feature attribute properties
-  - [ ] `admin` groups can modify `visibility` and group membership metadata (`organization` is always immutable)
-  - [ ] Viewers cannot write at all
-- [ ] Implement server-side field-level enforcement in PUT/PATCH handlers:
-  - [ ] Parse incoming changes, compare to allowed fields for the caller's role
-  - [ ] Reject with `403 Forbidden` and a clear error message if unauthorized fields are modified
-- [ ] Write tests: editor can change geometry but not visibility; admin can change visibility but not organization; viewer is rejected
+- [x] Define field-level permission model:
+  - [x] `editor` groups can modify geometry + feature attribute properties
+  - [x] `admin` groups can modify `visibility` and group membership metadata (`organization` is always immutable)
+  - [x] Viewers cannot write at all
+- [x] Implement server-side field-level enforcement in PUT/PATCH handlers:
+  - [x] Parse incoming changes, compare to allowed fields for the caller's role
+  - [x] Reject with `403 Forbidden` and a clear error message if unauthorized fields are modified
+- [x] Write tests: editor can change geometry but not visibility; admin can change visibility but not organization; viewer is rejected
 
 ## Phase 8: QGIS Plugin — Authentication
 

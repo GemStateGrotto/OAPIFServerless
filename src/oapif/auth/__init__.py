@@ -314,3 +314,111 @@ class AuthError(Exception):
         self.status_code = status_code
         self.message = message
         self.detail = detail
+
+
+# ---------------------------------------------------------------------------
+# Field-level authorization
+# ---------------------------------------------------------------------------
+
+
+def require_write_role(auth: AuthContext) -> None:
+    """Verify the caller has a write-capable role (``editor`` or ``admin``).
+
+    Viewers and users with no recognized role are rejected.
+
+    Raises
+    ------
+    AuthError
+        403 Forbidden if the caller lacks a write role.
+    """
+    if not auth.roles & {"editor", "admin"}:
+        raise AuthError(
+            status_code=403,
+            message="Insufficient permissions",
+            detail="Write operations require 'editor' or 'admin' role.",
+        )
+
+
+def check_field_permissions_for_create(
+    auth: AuthContext,
+    body: dict[str, Any],
+) -> None:
+    """Check field-level permissions for feature creation (POST).
+
+    Editors can create features with default visibility.
+    Only admins can explicitly set the ``visibility`` field.
+
+    Raises
+    ------
+    AuthError
+        403 Forbidden if the caller sets fields they are not authorized
+        to modify.
+    """
+    if "admin" in auth.roles:
+        return  # Admins can set any field
+
+    props = body.get("properties") or {}
+    if "visibility" in props:
+        raise AuthError(
+            status_code=403,
+            message="Forbidden",
+            detail="Setting 'visibility' requires admin role. Omit the field to use the default visibility.",
+        )
+
+
+def check_field_permissions_for_replace(
+    auth: AuthContext,
+    body: dict[str, Any],
+    current_visibility: str,
+) -> None:
+    """Check field-level permissions for feature replacement (PUT).
+
+    Editors can replace geometry and properties but cannot change
+    ``visibility``.  Admins can change any field except ``organization``
+    (which is enforced separately as always-immutable).
+
+    Raises
+    ------
+    AuthError
+        403 Forbidden if the caller modifies a field they are not
+        authorized to change.
+    """
+    if "admin" in auth.roles:
+        return
+
+    props = body.get("properties") or {}
+    new_visibility = props.get("visibility", current_visibility)
+    if new_visibility != current_visibility:
+        raise AuthError(
+            status_code=403,
+            message="Forbidden",
+            detail="Changing 'visibility' requires admin role.",
+        )
+
+
+def check_field_permissions_for_update(
+    auth: AuthContext,
+    patch: dict[str, Any],
+) -> None:
+    """Check field-level permissions for feature update (PATCH).
+
+    Editors can modify geometry and properties but cannot change
+    ``visibility``.  Admins can change any field except ``organization``
+    (which is enforced separately as always-immutable).
+
+    Raises
+    ------
+    AuthError
+        403 Forbidden if the patch includes fields the caller is not
+        authorized to modify.
+    """
+    if "admin" in auth.roles:
+        return
+
+    props = patch.get("properties") or {}
+    if "visibility" in props:
+        raise AuthError(
+            status_code=403,
+            message="Forbidden",
+            detail="Changing 'visibility' requires admin role.",
+        )

@@ -76,8 +76,11 @@ def _auth_claims(
     groups: list[str] | None = None,
     sub: str = "user-1",
 ) -> dict[str, Any]:
-    """Build Cognito JWT claims for an authenticated user."""
-    all_groups = [f"org:{org}"]
+    """Build Cognito JWT claims for an authenticated user.
+
+    Includes ``editor`` role by default so write operations are authorized.
+    """
+    all_groups = [f"org:{org}", "admin"]
     if groups:
         all_groups.extend(groups)
     return {
