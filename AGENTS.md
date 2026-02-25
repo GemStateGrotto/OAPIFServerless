@@ -19,6 +19,10 @@ OAPIFServerless is an AWS Serverless OGC API - Features implementation backed by
 
 All development happens inside the **DevContainer**. It provides Python 3.14, Node.js 22, AWS CLI, and DynamoDB Local (`http://dynamodb-local:8000`). Dependencies are auto-installed via `postCreateCommand`.
 
+### AWS Access
+
+AWS credentials are available in the DevContainer environment. Read-only AWS operations (e.g., `aws s3 ls`, `aws dynamodb describe-table`) may be run freely. **Any AWS command that creates, modifies, or deletes resources must be explicitly approved or requested by the user before execution.**
+
 ## Project Layout
 
 ```
@@ -78,6 +82,7 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 ## Security Principles
 
 - Never log or expose full JWTs, secrets, or PII
+- Files in ~vscode/.secrets/ must not be printed to the console, committed to git, or read by agents
 - All authorization decisions happen server-side in Lambda; never trust client claims alone
 - Organization (`organization` field) is a hard tenant boundary — all queries are scoped to the caller's org; no response ever mixes orgs
 - Unauthenticated GET requests are allowed but must include an `organization` query parameter and only see `public` features

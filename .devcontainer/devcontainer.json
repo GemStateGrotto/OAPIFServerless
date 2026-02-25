@@ -54,15 +54,17 @@
     },
 
     // Install project dependencies and git hooks after container creation
-    "postCreateCommand": "pip install -e '.[cdk,dev]' && npm install -g aws-cdk && cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit",
+    "postCreateCommand": "bash .devcontainer/post_create.sh",
 
     // Environment variables available inside the container
     "containerEnv": {
-        "DYNAMODB_LOCAL_ENDPOINT": "http://dynamodb-local:8000",
-        "AWS_ACCESS_KEY_ID": "testing",
-        "AWS_SECRET_ACCESS_KEY": "testing",
-        "AWS_DEFAULT_REGION": "us-west-2"
+        "DYNAMODB_LOCAL_ENDPOINT": "http://dynamodb-local:8000"
     },
+
+    // Bind mount secrets to be loaded into the environment
+    "mounts":[
+		"source=${env:HOME}${env:USERPROFILE}/.secrets/oapifserverless,target=/home/vscode/.secrets/oapifserverless,type=bind"
+	],
 
     // Run as non-root inside the container
     "remoteUser": "vscode"
