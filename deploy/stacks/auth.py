@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import (
+    aws_certificatemanager as acm,
+)
+from aws_cdk import (
     aws_cognito as cognito,
 )
 from constructs import Construct
@@ -63,6 +66,21 @@ class AuthStack(cdk.Stack):
                 domain_prefix=f"{config.cognito_domain_prefix}-{config.environment}",
             ),
         )
+
+        # --- Custom Cognito Domain (optional) ---
+        self.custom_user_pool_domain: cognito.UserPoolDomain | None = None
+        if config.cognito_custom_domain_name and config.cognito_custom_domain_certificate_arn:
+            self.custom_user_pool_domain = self.user_pool.add_domain(
+                "OapifCustomDomain",
+                custom_domain=cognito.CustomDomainOptions(
+                    domain_name=config.cognito_custom_domain_name,
+                    certificate=acm.Certificate.from_certificate_arn(
+                        self,
+                        "CognitoCustomDomainCert",
+                        config.cognito_custom_domain_certificate_arn,
+                    ),
+                ),
+            )
 
         # --- Google OAuth Federation (optional) ---
         self.google_provider: cognito.UserPoolIdentityProviderGoogle | None = None
@@ -206,6 +224,13 @@ class AuthStack(cdk.Stack):
             "UserPoolDomainUrl",
             value=self.user_pool_domain.base_url(),
         )
+        if self.custom_user_pool_domain:
+            cdk.CfnOutput(
+                self,
+                "CognitoCustomDomainCloudFrontAlias",
+                value=self.custom_user_pool_domain.cloud_front_endpoint,
+                description="CNAME target for the Cognito custom domain",
+            )
         cdk.CfnOutput(
             self,
             "AppClientId",

@@ -37,6 +37,8 @@ class DeploymentConfig:
 
     # Cognito
     cognito_domain_prefix: str = "oapif"
+    cognito_custom_domain_name: str = ""  # e.g. "auth.example.com"
+    cognito_custom_domain_certificate_arn: str = ""  # ACM cert ARN (must be in us-east-1)
 
     # Lambda
     lambda_memory_mb: int = 256
@@ -79,6 +81,8 @@ _ENV_MAPPING: dict[str, str] = {
     "OAPIF_DYNAMODB_BILLING_MODE": "dynamodb_billing_mode",
     "OAPIF_S3_BUCKET_PREFIX": "s3_bucket_prefix",
     "OAPIF_COGNITO_DOMAIN_PREFIX": "cognito_domain_prefix",
+    "OAPIF_COGNITO_CUSTOM_DOMAIN_NAME": "cognito_custom_domain_name",
+    "OAPIF_COGNITO_CUSTOM_DOMAIN_CERTIFICATE_ARN": "cognito_custom_domain_certificate_arn",
     "OAPIF_LAMBDA_MEMORY_MB": "lambda_memory_mb",
     "OAPIF_LAMBDA_TIMEOUT_SECONDS": "lambda_timeout_seconds",
     "OAPIF_LAMBDA_LOG_LEVEL": "lambda_log_level",
