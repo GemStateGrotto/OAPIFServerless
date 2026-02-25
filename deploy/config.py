@@ -46,6 +46,10 @@ class DeploymentConfig:
     # API Gateway
     api_stage_name: str = "v1"
 
+    # Custom domain (optional — leave blank to use the default API Gateway URL)
+    custom_domain_name: str = ""  # e.g. "api.example.com"
+    custom_domain_certificate_arn: str = ""  # ACM certificate ARN (must be in the same region)
+
     @property
     def features_table_name(self) -> str:
         return f"{self.dynamodb_table_prefix}-{self.environment}-features"
@@ -65,8 +69,6 @@ class DeploymentConfig:
 
 # Maps OAPIF_* env vars to DeploymentConfig field names.
 _ENV_MAPPING: dict[str, str] = {
-    "OAPIF_AWS_REGION": "aws_region",
-    "OAPIF_AWS_ACCOUNT": "aws_account",
     "OAPIF_STACK_PREFIX": "stack_prefix",
     "OAPIF_ENVIRONMENT": "environment",
     "OAPIF_DYNAMODB_TABLE_PREFIX": "dynamodb_table_prefix",
@@ -77,6 +79,8 @@ _ENV_MAPPING: dict[str, str] = {
     "OAPIF_LAMBDA_TIMEOUT_SECONDS": "lambda_timeout_seconds",
     "OAPIF_LAMBDA_LOG_LEVEL": "lambda_log_level",
     "OAPIF_API_STAGE_NAME": "api_stage_name",
+    "OAPIF_CUSTOM_DOMAIN_NAME": "custom_domain_name",
+    "OAPIF_CUSTOM_DOMAIN_CERTIFICATE_ARN": "custom_domain_certificate_arn",
 }
 
 # Fields that need str→int coercion when read from env vars.
@@ -93,7 +97,16 @@ def load_deployment_config(app: Any = None) -> DeploymentConfig:
     """
     values: dict[str, Any] = {}
 
-    # Environment variables
+    # AWS environment — use standard env vars (not OAPIF_-prefixed)
+    aws_region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+    if aws_region:
+        values["aws_region"] = aws_region
+
+    aws_account = os.environ.get("AWS_ACCOUNT_ID")
+    if aws_account:
+        values["aws_account"] = aws_account
+
+    # OAPIF_* environment variables
     for env_var, config_key in _ENV_MAPPING.items():
         env_value = os.environ.get(env_var)
         if env_value is not None:

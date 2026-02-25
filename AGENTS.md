@@ -67,10 +67,11 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 
 ### Deploying Changes
 
-- `cdk deploy oapif-dev-api` — deploys only Lambda + API Gateway (~15-30s for code changes)
-- `cdk diff oapif-dev-api` — preview what will change before deploying
-- `cdk deploy --all` — deploy both stacks
-- Never run `cdk destroy` on the data stack in production
+- `./scripts/deploy.sh deploy api` — deploys only Lambda + API Gateway (~15-30s for code changes)
+- `./scripts/deploy.sh diff` — preview what will change before deploying
+- `./scripts/deploy.sh deploy` — deploy all stacks
+- `./scripts/deploy.sh status` — show deployment status of all stacks
+- Never run `./scripts/deploy.sh destroy` on the data stack in production
 
 ## Testing Expectations
 

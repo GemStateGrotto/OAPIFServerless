@@ -24,6 +24,9 @@ from aws_cdk import (
     aws_apigatewayv2_integrations as apigwv2_integrations,
 )
 from aws_cdk import (
+    aws_certificatemanager as acm,
+)
+from aws_cdk import (
     aws_cognito as cognito,
 )
 from aws_cdk import (
@@ -60,12 +63,27 @@ class ApiStack(cdk.Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # --- Lambda Function ---
+        # Bundle source code with pip dependencies so third-party packages
+        # (jsonschema, pydantic, etc.) are available in the Lambda environment.
+        # boto3/botocore ship with the Lambda runtime and are excluded.
+        code = lambda_.Code.from_asset(
+            "src",
+            bundling=cdk.BundlingOptions(
+                image=lambda_.Runtime.PYTHON_3_14.bundling_image,
+                command=[
+                    "bash",
+                    "-c",
+                    "pip install jsonschema pydantic -t /asset-output && cp -ru . /asset-output",
+                ],
+            ),
+        )
+
         self.handler = lambda_.Function(
             self,
             "OapifHandler",
-            runtime=lambda_.Runtime.PYTHON_3_13,  # Closest available; upgrade to 3.14 when CDK adds it
+            runtime=lambda_.Runtime.PYTHON_3_14,
             handler="oapif.handlers.main.handler",
-            code=lambda_.Code.from_asset("src"),
+            code=code,
             memory_size=config.lambda_memory_mb,
             timeout=Duration.seconds(config.lambda_timeout_seconds),
             environment={
@@ -145,13 +163,61 @@ class ApiStack(cdk.Stack):
                 # Lambda handles auth logic based on presence of JWT claims.
             )
 
-        # Write routes (Phase 6) will require the JWT authorizer:
-        # self.api.add_routes(
-        #     ...,
-        #     authorizer=jwt_authorizer,
-        # )
-        # Store authorizer for Phase 6 to reference
-        self._jwt_authorizer = jwt_authorizer
+        # --- Write routes (Phase 6: OGC API - Features Part 4 CRUD) ---
+        # Write routes require JWT authentication.
+        write_routes: list[tuple[str, str]] = [
+            ("POST", "/collections/{collectionId}/items"),
+            ("PUT", "/collections/{collectionId}/items/{featureId}"),
+            ("PATCH", "/collections/{collectionId}/items/{featureId}"),
+            ("DELETE", "/collections/{collectionId}/items/{featureId}"),
+        ]
+
+        for method, path in write_routes:
+            self.api.add_routes(
+                path=path,
+                methods=[apigwv2.HttpMethod(method)],
+                integration=lambda_integration,
+                authorizer=jwt_authorizer,
+            )
+
+        # OPTIONS routes (no auth required — used for CORS preflight / Allow header)
+        options_routes: list[str] = [
+            "/collections/{collectionId}/items",
+            "/collections/{collectionId}/items/{featureId}",
+        ]
+
+        for path in options_routes:
+            self.api.add_routes(
+                path=path,
+                methods=[apigwv2.HttpMethod("OPTIONS")],
+                integration=lambda_integration,
+            )
+
+        # --- Custom Domain (optional) ---
+        if config.custom_domain_name and config.custom_domain_certificate_arn:
+            certificate = acm.Certificate.from_certificate_arn(
+                self,
+                "DomainCert",
+                config.custom_domain_certificate_arn,
+            )
+            domain = apigwv2.DomainName(
+                self,
+                "CustomDomain",
+                domain_name=config.custom_domain_name,
+                certificate=certificate,
+            )
+            apigwv2.ApiMapping(
+                self,
+                "ApiMapping",
+                api=self.api,
+                domain_name=domain,
+            )
+            cdk.CfnOutput(
+                self,
+                "CustomDomainTarget",
+                value=domain.regional_domain_name,
+                description="Create a CNAME/ALIAS record pointing your domain to this target",
+            )
 
         # --- Outputs ---
         cdk.CfnOutput(self, "ApiUrl", value=self.api.url or "")

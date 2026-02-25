@@ -213,23 +213,46 @@ This separation means you can iterate on Lambda code and API routes without risk
 
 ### Quick Start
 
+A deployment helper script wraps all CDK commands:
+
 ```bash
 # First-time setup (once per AWS account/region)
-npx cdk bootstrap --app "python deploy/app.py"
+./scripts/deploy.sh bootstrap
 
 # Deploy all stacks
-npx cdk deploy --app "python deploy/app.py" --all
+./scripts/deploy.sh deploy
 
 # Deploy only the API stack (fast iteration on Lambda code, ~15-30s)
-npx cdk deploy --app "python deploy/app.py" oapif-dev-api
+./scripts/deploy.sh deploy api
 
 # Preview changes before deploying
-npx cdk diff --app "python deploy/app.py" oapif-dev-api
+./scripts/deploy.sh diff
+
+# Show stack outputs (API URL, table names, etc.)
+./scripts/deploy.sh outputs
+
+# Show deployment status
+./scripts/deploy.sh status
 ```
+
+See `./scripts/deploy.sh help` for all commands.
 
 ### Configuration
 
 Deployment parameters are configured via environment variables (`OAPIF_*` prefix) or CDK context (`--context key=value`). Defaults are defined in `deploy/config.py`. See `.env.example` for the full list.
+
+AWS account and region are read from the standard `AWS_ACCOUNT_ID` and `AWS_REGION` environment variables.
+
+### Custom Domain
+
+To serve the API from a custom domain (e.g., `api.example.com`), set two additional environment variables:
+
+```bash
+OAPIF_CUSTOM_DOMAIN_NAME=api.example.com
+OAPIF_CUSTOM_DOMAIN_CERTIFICATE_ARN=arn:aws:acm:us-west-2:123456789012:certificate/abc-123
+```
+
+The ACM certificate must be provisioned in the same region as the API Gateway. After deployment, create a CNAME or ALIAS DNS record pointing your domain to the `CustomDomainTarget` output. When these variables are unset, the default API Gateway URL is used.
 
 ### Production Deploys
 
@@ -237,7 +260,7 @@ CDK deploys are incremental — only changed resources are updated. A typical La
 
 ```bash
 # Deploy a fix to production (only touches Lambda + API Gateway)
-OAPIF_ENVIRONMENT=prod npx cdk deploy --app "python deploy/app.py" oapif-prod-api
+OAPIF_ENVIRONMENT=prod ./scripts/deploy.sh deploy api
 ```
 
 ### What Gets Created

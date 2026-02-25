@@ -123,6 +123,8 @@ class AuthStack(cdk.Stack):
             access_token_validity=cdk.Duration.hours(1),
             prevent_user_existence_errors=True,
         )
+        # M2M client depends on the resource server existing first
+        self.m2m_client.node.add_dependency(self.resource_server)
 
         # --- Cognito Groups ---
         # Organization groups (one per org, e.g. "org:GemStateGrotto")

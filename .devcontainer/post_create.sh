@@ -20,7 +20,7 @@ if ! grep -q "$SECRETS" ~/.bashrc 2>/dev/null; then
 # Export secrets from mounted file (if present)
 if [ -f "$SECRETS" ]; then
     set -a
-    source <(tr -d '\\r' < "$SECRETS")
+    source <(tr -d '\\r' < "$SECRETS" | grep -v '^\\s*#' | grep -v '^\\s*$')
     set +a
 fi
 BASHRC

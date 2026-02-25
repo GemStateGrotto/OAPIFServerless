@@ -155,10 +155,11 @@ This document tracks the full build-out of the project. Phases are roughly seque
 - [x] Finalize CDK stacks:
   - [x] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
   - [x] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
-- [ ] Create deployment CLI or Makefile with `bootstrap`, `deploy`, `destroy` commands
-- [ ] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)
-- [ ] Test full deploy-from-scratch on a clean AWS account
-- [ ] Add support for custom domain name on API Gateway (optional)
+- [x] Create deployment CLI script (`scripts/deploy.sh`) with bootstrap, deploy, destroy commands
+- [x] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)
+- [x] Bundle pip dependencies (jsonschema, pydantic) in Lambda deployment package
+- [x] Test full deploy-from-scratch on a clean AWS account
+- [x] Add support for custom domain name on API Gateway (optional)
 
 ## Phase 12: OpenAPI Definition and Documentation
 
