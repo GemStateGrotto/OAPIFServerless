@@ -57,7 +57,7 @@ OAPIFServerless provides a low-cost, usage-based geospatial feature server that 
 | **API Gateway** (HTTP API) | REST endpoint with JWT authorizer |
 | **Lambda** (Python) | Request handling, OAPIF logic, authorization enforcement |
 | **DynamoDB** | Feature storage, change tracking, collection configuration |
-| **Cognito** | User pool, OIDC provider, group-based access control |
+| **Cognito** | User pool, OIDC provider, Google federation, group-based access control |
 | **S3** | QGIS project file storage |
 | **CloudFormation / CDK** | Infrastructure-as-Code deployment (CDK Python) |
 
@@ -150,7 +150,7 @@ Version 2 will add a GeoHash (or Z-order/Hilbert curve) attribute to each featur
 
 The API supports both authenticated and unauthenticated access on read (GET) endpoints:
 
-- **Authenticated:** A valid JWT from the Cognito User Pool, obtained via OIDC authorization code flow (used by the QGIS plugin) or client credentials flow (for machine-to-machine access). The caller's organization and visibility level are derived from their Cognito group memberships.
+- **Authenticated:** A valid JWT from the Cognito User Pool, obtained via OIDC authorization code flow (used by the QGIS plugin), Google social sign-in, or client credentials flow (for machine-to-machine access). The caller's organization and visibility level are derived from their Cognito group memberships.
 - **Unauthenticated:** Public access is allowed on all GET endpoints. The caller must provide an `organization` query parameter and will only see features with `visibility = public`.
 
 All write endpoints (POST, PUT, PATCH, DELETE) always require authentication.

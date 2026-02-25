@@ -50,6 +50,10 @@ class DeploymentConfig:
     custom_domain_name: str = ""  # e.g. "api.example.com"
     custom_domain_certificate_arn: str = ""  # ACM certificate ARN (must be in the same region)
 
+    # Google OAuth federation (optional — leave blank to disable)
+    google_oauth_client_id: str = ""  # Google OAuth client ID
+    google_oauth_client_secret: str = ""  # Google OAuth client secret
+
     @property
     def features_table_name(self) -> str:
         return f"{self.dynamodb_table_prefix}-{self.environment}-features"
@@ -81,6 +85,8 @@ _ENV_MAPPING: dict[str, str] = {
     "OAPIF_API_STAGE_NAME": "api_stage_name",
     "OAPIF_CUSTOM_DOMAIN_NAME": "custom_domain_name",
     "OAPIF_CUSTOM_DOMAIN_CERTIFICATE_ARN": "custom_domain_certificate_arn",
+    "OAPIF_GOOGLE_OAUTH_CLIENT_ID": "google_oauth_client_id",
+    "OAPIF_GOOGLE_OAUTH_CLIENT_SECRET": "google_oauth_client_secret",
 }
 
 # Fields that need str→int coercion when read from env vars.

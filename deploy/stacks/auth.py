@@ -64,6 +64,31 @@ class AuthStack(cdk.Stack):
             ),
         )
 
+        # --- Google OAuth Federation (optional) ---
+        self.google_provider: cognito.UserPoolIdentityProviderGoogle | None = None
+        supported_providers: list[cognito.UserPoolClientIdentityProvider] = [
+            cognito.UserPoolClientIdentityProvider.COGNITO,
+        ]
+
+        if config.google_oauth_client_id and config.google_oauth_client_secret:
+            self.google_provider = cognito.UserPoolIdentityProviderGoogle(
+                self,
+                "Google",
+                user_pool=self.user_pool,
+                client_id=config.google_oauth_client_id,
+                client_secret_value=cdk.SecretValue.unsafe_plain_text(
+                    config.google_oauth_client_secret,
+                ),
+                scopes=["openid", "email", "profile"],
+                attribute_mapping=cognito.AttributeMapping(
+                    email=cognito.ProviderAttribute.GOOGLE_EMAIL,
+                    fullname=cognito.ProviderAttribute.GOOGLE_NAME,
+                ),
+            )
+            supported_providers.append(
+                cognito.UserPoolClientIdentityProvider.GOOGLE,
+            )
+
         # --- App Client: Interactive Login (Authorization Code + PKCE) ---
         self.app_client = self.user_pool.add_client(
             "AppClient",
@@ -85,11 +110,16 @@ class AuthStack(cdk.Stack):
                 callback_urls=["http://localhost:8765/callback"],
                 logout_urls=["http://localhost:8765/logout"],
             ),
+            supported_identity_providers=supported_providers,
             access_token_validity=cdk.Duration.hours(1),
             id_token_validity=cdk.Duration.hours(1),
-            refresh_token_validity=cdk.Duration.days(30),
+            refresh_token_validity=cdk.Duration.days(365),
             prevent_user_existence_errors=True,
         )
+
+        # Ensure the app client is created after the Google provider
+        if self.google_provider:
+            self.app_client.node.add_dependency(self.google_provider)
 
         # --- App Client: Machine-to-Machine (Client Credentials) ---
         # Requires a resource server for scoped access.
@@ -121,6 +151,9 @@ class AuthStack(cdk.Stack):
                     cognito.OAuthScope.custom(f"{config.stack_prefix}-{config.environment}-api/features.write"),
                 ],
             ),
+            supported_identity_providers=[
+                cognito.UserPoolClientIdentityProvider.COGNITO,
+            ],
             access_token_validity=cdk.Duration.hours(1),
             prevent_user_existence_errors=True,
         )
