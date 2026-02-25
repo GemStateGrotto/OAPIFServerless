@@ -149,8 +149,8 @@ class TestExtractGroups:
     def test_invalid_json_falls_back_to_split(self) -> None:
         claims = _make_claims(groups="[invalid json")
         groups = _extract_groups_from_claims(claims)
-        # Falls back to space-delimited, so the entire string is one group
-        assert groups == frozenset({"[invalid", "json"})
+        # Brackets are stripped, then space-delimited split
+        assert groups == frozenset({"invalid", "json"})
 
 
 # ===================================================================

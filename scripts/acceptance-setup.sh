@@ -145,16 +145,16 @@ create_group "TestOrgB:restricted"   "TestOrgB restricted visibility (acceptance
 echo ""
 info "Creating Cognito test users..."
 
-create_user "test-editor" "test-editor@oapif.test" \
+create_user "test-editor@oapif.test" "test-editor@oapif.test" \
     "org:GemStateGrotto" "editor" "GemStateGrotto:members"
 
-create_user "test-admin" "test-admin@oapif.test" \
+create_user "test-admin@oapif.test" "test-admin@oapif.test" \
     "org:GemStateGrotto" "admin" "GemStateGrotto:members" "GemStateGrotto:restricted"
 
-create_user "test-viewer" "test-viewer@oapif.test" \
+create_user "test-viewer@oapif.test" "test-viewer@oapif.test" \
     "org:GemStateGrotto" "viewer"
 
-create_user "test-other-org" "test-other-org@oapif.test" \
+create_user "test-other-org@oapif.test" "test-other-org@oapif.test" \
     "org:TestOrgB" "editor" "TestOrgB:members"
 
 # ── Seed test collection ─────────────────────────────────────────────

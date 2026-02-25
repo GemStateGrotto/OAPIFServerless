@@ -53,7 +53,7 @@ info "Features Table: $FEATURES_TABLE"
 echo ""
 info "Deleting Cognito test users..."
 
-for username in test-editor test-admin test-viewer test-other-org; do
+for username in test-editor@oapif.test test-admin@oapif.test test-viewer@oapif.test test-other-org@oapif.test; do
     if aws cognito-idp admin-get-user --user-pool-id "$USER_POOL_ID" \
         --username "$username" &>/dev/null; then
         aws cognito-idp admin-delete-user --user-pool-id "$USER_POOL_ID" \

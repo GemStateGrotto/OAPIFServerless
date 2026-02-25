@@ -61,6 +61,8 @@ api_stack = ApiStack(
     config_table=data_stack.config_table,
     project_bucket=data_stack.project_bucket,
     user_pool=auth_stack.user_pool,
+    app_client=auth_stack.app_client,
+    m2m_client=auth_stack.m2m_client,
     env=env,
 )
 api_stack.add_dependency(data_stack)

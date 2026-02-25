@@ -58,6 +58,8 @@ class ApiStack(cdk.Stack):
         config_table: dynamodb.ITable,
         project_bucket: s3.IBucket,
         user_pool: cognito.IUserPool,
+        app_client: cognito.UserPoolClient,
+        m2m_client: cognito.UserPoolClient,
         **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -122,10 +124,10 @@ class ApiStack(cdk.Stack):
             "OapifJwtAuthorizer",
             jwt_issuer=issuer_url,
             jwt_audience=[
-                # Both app clients are valid audiences
-                # Note: Cognito access tokens use the user pool client ID as audience
-                # We'll be permissive here; Lambda validates further
-                user_pool.user_pool_id,
+                # Cognito ID tokens carry the originating app client ID
+                # as the ``aud`` claim — list both clients here.
+                app_client.user_pool_client_id,
+                m2m_client.user_pool_client_id,
             ],
             identity_source=["$request.header.Authorization"],
         )

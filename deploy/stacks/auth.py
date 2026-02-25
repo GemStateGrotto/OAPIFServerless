@@ -1,7 +1,7 @@
 """Auth stack — Cognito User Pool, clients, groups, and domain.
 
 This stack contains authentication infrastructure: a Cognito User Pool
-with OIDC configuration, app clients for QGIS plugin (PKCE) and
+with OIDC configuration, app clients for interactive login (PKCE) and
 machine-to-machine (client credentials), and group definitions matching
 the access control model.
 """
@@ -64,13 +64,14 @@ class AuthStack(cdk.Stack):
             ),
         )
 
-        # --- App Client: QGIS Plugin (Authorization Code + PKCE) ---
-        self.qgis_client = self.user_pool.add_client(
-            "QgisPluginClient",
-            user_pool_client_name=f"{config.stack_prefix}-{config.environment}-qgis",
+        # --- App Client: Interactive Login (Authorization Code + PKCE) ---
+        self.app_client = self.user_pool.add_client(
+            "AppClient",
+            user_pool_client_name=f"{config.stack_prefix}-{config.environment}-app",
             generate_secret=False,  # Public client (PKCE)
             auth_flows=cognito.AuthFlow(
                 user_srp=True,
+                admin_user_password=True,  # Required for acceptance test auth
             ),
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(
@@ -174,8 +175,8 @@ class AuthStack(cdk.Stack):
         )
         cdk.CfnOutput(
             self,
-            "QgisClientId",
-            value=self.qgis_client.user_pool_client_id,
+            "AppClientId",
+            value=self.app_client.user_pool_client_id,
         )
         cdk.CfnOutput(
             self,

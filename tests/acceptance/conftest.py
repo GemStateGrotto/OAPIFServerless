@@ -22,6 +22,7 @@ from collections.abc import Generator
 from typing import Any
 
 import boto3
+import boto3.session
 import httpx
 import pytest
 
@@ -33,13 +34,27 @@ TEST_PASSWORD = "Accept@nceTest2026!"
 COLLECTION_ID = "acceptance-caves"
 
 # ---------------------------------------------------------------------------
-# Helpers — stack output resolution
+# Helpers — AWS session & stack output resolution
 # ---------------------------------------------------------------------------
+
+
+def _aws_region() -> str:
+    """Resolve the AWS region from environment variables."""
+    region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+    if not region:
+        msg = "Set AWS_DEFAULT_REGION or AWS_REGION"
+        raise RuntimeError(msg)
+    return region
+
+
+def _boto3_session() -> boto3.session.Session:
+    """Create a boto3 session with the correct region."""
+    return boto3.session.Session(region_name=_aws_region())
 
 
 def _get_stack_output(stack_name: str, output_key: str) -> str:
     """Read a single CloudFormation stack output value."""
-    cfn = boto3.client("cloudformation")
+    cfn = _boto3_session().client("cloudformation")
     resp = cfn.describe_stacks(StackName=stack_name)
     for output in resp["Stacks"][0].get("Outputs", []):
         if output["OutputKey"] == output_key:
@@ -70,18 +85,11 @@ def stack_prefix() -> str:
 def base_url(stack_prefix: str, environment: str) -> str:
     """Derive the public base URL from the API stack outputs.
 
-    Prefers a custom domain when available, otherwise falls back to
-    the default API Gateway URL.
+    Uses the default API Gateway URL.  If we later add a real custom
+    domain output (not just the CNAME target) we can prefer that.
     """
     api_stack = f"{stack_prefix}-{environment}-api"
-    url: str
-    try:
-        # Try custom domain first
-        domain = _get_stack_output(api_stack, "CustomDomainTarget")
-        url = f"https://{domain}"
-    except KeyError:
-        url = _get_stack_output(api_stack, "ApiUrl")
-
+    url = _get_stack_output(api_stack, "ApiUrl")
     return url.rstrip("/")
 
 
@@ -124,7 +132,7 @@ def _authenticate(
 
     Uses ``ADMIN_USER_PASSWORD_AUTH`` — no SRP challenge flow required.
     """
-    cognito = boto3.client("cognito-idp")
+    cognito = _boto3_session().client("cognito-idp")
     resp = cognito.admin_initiate_auth(
         UserPoolId=user_pool_id,
         ClientId=client_id,
@@ -154,25 +162,25 @@ def _make_client(base_url: str, token: str | None = None) -> httpx.Client:
 @pytest.fixture(scope="session")
 def editor_token(user_pool_id: str, cognito_client_id: str) -> str:
     """JWT for test-editor."""
-    return _authenticate(user_pool_id, cognito_client_id, "test-editor")
+    return _authenticate(user_pool_id, cognito_client_id, "test-editor@oapif.test")
 
 
 @pytest.fixture(scope="session")
 def admin_token(user_pool_id: str, cognito_client_id: str) -> str:
     """JWT for test-admin."""
-    return _authenticate(user_pool_id, cognito_client_id, "test-admin")
+    return _authenticate(user_pool_id, cognito_client_id, "test-admin@oapif.test")
 
 
 @pytest.fixture(scope="session")
 def viewer_token(user_pool_id: str, cognito_client_id: str) -> str:
     """JWT for test-viewer."""
-    return _authenticate(user_pool_id, cognito_client_id, "test-viewer")
+    return _authenticate(user_pool_id, cognito_client_id, "test-viewer@oapif.test")
 
 
 @pytest.fixture(scope="session")
 def other_org_token(user_pool_id: str, cognito_client_id: str) -> str:
     """JWT for test-other-org."""
-    return _authenticate(user_pool_id, cognito_client_id, "test-other-org")
+    return _authenticate(user_pool_id, cognito_client_id, "test-other-org@oapif.test")
 
 
 @pytest.fixture(scope="session")

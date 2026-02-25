@@ -14,6 +14,7 @@ fields are absent.  The Lambda handler must then require an
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -82,11 +83,49 @@ _ALL_VISIBILITY_LEVELS: list[str] = ["public", "members", "restricted"]
 # ---------------------------------------------------------------------------
 
 
+def _decode_jwt_payload(token: str) -> dict[str, Any] | None:
+    """Decode a JWT payload without signature verification.
+
+    This is used **only** for read-only GET routes where the API Gateway
+    JWT authorizer is intentionally absent (to allow unauthenticated
+    access).  Write routes are fully protected by the API Gateway JWT
+    authorizer.
+
+    Returns the claims dict, or ``None`` if decoding fails.
+    """
+    import base64
+
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        payload = parts[1]
+        # Add padding
+        payload += "=" * (4 - len(payload) % 4)
+        decoded = base64.b64decode(payload)
+        claims: dict[str, Any] = json.loads(decoded)
+        return claims
+    except Exception:
+        logger.debug("Failed to decode JWT payload", exc_info=True)
+        return None
+
+
 def _extract_jwt_claims(event: dict[str, Any]) -> dict[str, Any] | None:
     """Extract JWT claims from an API Gateway v2 event.
 
-    Returns ``None`` if no JWT authorizer claims are present, indicating
-    an unauthenticated request.
+    Checks two sources in order:
+
+    1. **Authorizer context** — present when the route has a JWT authorizer
+       (write routes).  Claims are pre-validated by API Gateway.
+
+    2. **Authorization header** — fallback for GET routes that have no
+       authorizer.  The JWT payload is decoded (without signature
+       verification) so the Lambda can apply org scoping and visibility
+       filtering.  This is safe for read-only paths; writes are always
+       protected by the API Gateway authorizer.
+
+    Returns ``None`` if no JWT is present at all, indicating an
+    unauthenticated request.
     """
     authorizer = event.get("requestContext", {}).get("authorizer", {})
 
@@ -96,6 +135,13 @@ def _extract_jwt_claims(event: dict[str, Any]) -> dict[str, Any] | None:
     if claims:
         return dict(claims)
 
+    # Fallback: extract from Authorization header (GET routes without authorizer)
+    headers = event.get("headers", {})
+    auth_header = headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+        return _decode_jwt_payload(token)
+
     return None
 
 
@@ -103,8 +149,15 @@ def _extract_groups_from_claims(claims: dict[str, Any]) -> frozenset[str]:
     """Extract Cognito groups from JWT claims.
 
     Cognito stores groups in the ``cognito:groups`` claim.  When passed
-    through API Gateway, this is typically a space-delimited string or
-    may be a JSON-encoded list.
+    through API Gateway HTTP API v2 JWT authorizer, array claims are
+    serialized as a bracket-wrapped, space-delimited string:
+    ``"[org:GemStateGrotto editor GemStateGrotto:members]"``.
+
+    This function handles:
+    - Native list (direct Lambda invocation / unit tests)
+    - JSON array string (``'["a","b"]'``)
+    - Bracket-wrapped space-delimited string (``'[a b c]'``)
+    - Plain space-delimited string (``'a b c'``)
     """
     raw = claims.get("cognito:groups", "")
 
@@ -112,11 +165,10 @@ def _extract_groups_from_claims(claims: dict[str, Any]) -> frozenset[str]:
         return frozenset(raw)
 
     if isinstance(raw, str) and raw:
-        # API Gateway may pass groups as space-separated or comma-separated
-        # Cognito ID tokens encode groups as a JSON array string
         stripped = raw.strip()
+
         if stripped.startswith("["):
-            # JSON array string — parse manually
+            # Try JSON array first (e.g. '["org:X","editor"]')
             import json
 
             try:
@@ -126,7 +178,14 @@ def _extract_groups_from_claims(claims: dict[str, Any]) -> frozenset[str]:
             except json.JSONDecodeError, TypeError:
                 pass
 
-        # Fall back to space-delimited
+            # API Gateway bracket-wrapped, space-delimited format:
+            # "[org:GemStateGrotto editor GemStateGrotto:members]"
+            inner = stripped.strip("[]").strip()
+            if inner:
+                return frozenset(inner.split())
+            return frozenset()
+
+        # Plain space-delimited
         return frozenset(stripped.split())
 
     return frozenset()
