@@ -147,6 +147,8 @@ A git pre-commit hook enforces this automatically (installed by DevContainer `po
 cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
+**Note:** Commits may take 60–90 seconds due to the pre-commit hook running all checks. `mypy` in particular can take 45+ seconds when rebuilding its cache, with no status output during that time. Use a generous timeout when committing.
+
 ## Commits & PRs
 
 - **Do not commit unless explicitly directed by the user.** Never push or write to upstream.
