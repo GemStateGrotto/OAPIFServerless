@@ -174,6 +174,19 @@ This document tracks the full build-out of the project. Phases are roughly seque
 ## Phase 13: Testing and Compliance
 
 - [ ] Run OGC API - Features conformance test suite (CITE) against deployed instance
+- [ ] Remote acceptance test suite (see [tests/TODO.md](tests/TODO.md) for full breakdown):
+  - [ ] Test infrastructure & conventions (CFN-derived config, fixtures, markers)
+  - [ ] Read endpoints (unauthenticated)
+  - [ ] Authentication & token lifecycle
+  - [ ] Full CRUD lifecycle (authenticated)
+  - [ ] ETag / optimistic concurrency
+  - [ ] Schema validation
+  - [ ] Row-level access control (org + visibility)
+  - [ ] Field-level authorization
+  - [ ] Pagination
+  - [ ] Filtering
+  - [ ] OPTIONS / CORS
+  - [ ] Error responses
 - [ ] Test QGIS plugin against the deployed API end-to-end
 - [ ] Load test: verify Lambda concurrency and DynamoDB throughput under simulated load
 - [ ] Security review: test auth bypass, row-level filter evasion, field-level enforcement

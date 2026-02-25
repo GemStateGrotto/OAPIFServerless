@@ -29,8 +29,8 @@ AWS credentials are available in the DevContainer environment. Read-only AWS ope
 .devcontainer/   # DevContainer configuration
 src/oapif/       # Lambda backend (handlers/, dal/, auth/, models/)
 deploy/          # CDK app and stacks
-tests/           # pytest suite (unit/, integration/)
-scripts/         # Quality-gate script and pre-commit hook
+tests/           # pytest suite (unit/, integration/, acceptance/)
+scripts/         # Quality-gate, deploy, and acceptance test setup/teardown
 .github/         # CI workflows
 ```
 
@@ -79,6 +79,39 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 - Integration tests against DynamoDB Local for data layer
 - Mock AWS services with `moto` where DynamoDB Local is not available
 - QGIS plugin tests should be runnable headless where possible
+
+### Acceptance Tests (Remote)
+
+End-to-end tests against a live deployed endpoint. Managed by setup/teardown scripts
+and a pytest suite. Full plan in `tests/TODO.md`.
+
+**Flow:**
+
+```bash
+./scripts/acceptance-setup.sh          # 1. Create Cognito users, groups, seed collection
+pytest -m acceptance                   # 2. Run acceptance tests
+./scripts/acceptance-teardown.sh       # 3. Clean up test fixtures
+```
+
+**What the setup script creates** (idempotent, reads all config from CFN outputs):
+
+- Cognito groups: `org:TestOrgB`, `TestOrgB:members`, `TestOrgB:restricted`
+- Cognito users with permanent passwords and group memberships:
+  - `test-editor` — `org:GemStateGrotto`, `editor`, `GemStateGrotto:members`
+  - `test-admin`  — `org:GemStateGrotto`, `admin`, `GemStateGrotto:members`, `GemStateGrotto:restricted`
+  - `test-viewer` — `org:GemStateGrotto`, `viewer`
+  - `test-other-org` — `org:TestOrgB`, `editor`, `TestOrgB:members`
+- DynamoDB config item: `acceptance-caves` collection (Point, both orgs)
+
+**What the teardown script removes:**
+
+- The four test users
+- The `org:TestOrgB` groups (stack-managed groups are left alone)
+- All features and the config item for `acceptance-caves`
+
+**Test conftest** authenticates users via `admin-initiate-auth` (ADMIN_USER_PASSWORD_AUTH)
+to get real ID tokens with `cognito:groups` claims. Base URL is derived from CFN stack
+outputs. No manual env var config beyond `OAPIF_ENVIRONMENT` and AWS credentials.
 
 ## Security Principles
 
