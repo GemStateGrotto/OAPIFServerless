@@ -281,7 +281,7 @@ def handle_items(
     """Return a paged feature collection.
 
     Supports query parameters: ``limit``, ``cursor``, ``bbox``,
-    ``datetime``, and arbitrary property filters.
+    and arbitrary property filters.
     """
     collection_id = path_params["collectionId"]
     params = _get_query_params(event)
@@ -297,7 +297,6 @@ def handle_items(
     limit = _parse_limit(params.get("limit"))
     cursor = params.get("cursor")
     bbox = _parse_bbox(params["bbox"]) if "bbox" in params else None
-    datetime_filter = params.get("datetime")
 
     # Resolve authentication and authorization context
     auth: AuthContext = resolve_auth_context(event, query_params=params)
@@ -305,7 +304,7 @@ def handle_items(
     visibility_filter = list(auth.visibility_filter)
 
     # Known non-property params to exclude from property filters
-    reserved = {"limit", "cursor", "bbox", "datetime", "organization", "f"}
+    reserved = {"limit", "cursor", "bbox", "organization", "f"}
     property_filters = {k: v for k, v in params.items() if k not in reserved}
 
     feat_dal = _get_feature_dal()
@@ -315,7 +314,6 @@ def handle_items(
         limit=limit,
         cursor=cursor,
         bbox=bbox,
-        datetime_filter=datetime_filter,
         property_filters=property_filters if property_filters else None,
         visibility_filter=visibility_filter,
     )
@@ -506,7 +504,6 @@ def handle_api(
                     {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10, "maximum": 1000}},
                     {"name": "cursor", "in": "query", "schema": {"type": "string"}},
                     {"name": "bbox", "in": "query", "schema": {"type": "string"}},
-                    {"name": "datetime", "in": "query", "schema": {"type": "string"}},
                     {"name": "organization", "in": "query", "required": True, "schema": {"type": "string"}},
                 ],
                 "responses": {"200": {"description": "GeoJSON FeatureCollection"}},

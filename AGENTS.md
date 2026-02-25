@@ -23,6 +23,10 @@ All development happens inside the **DevContainer**. It provides Python 3.14, No
 
 AWS credentials are available in the DevContainer environment. Read-only AWS operations (e.g., `aws s3 ls`, `aws dynamodb describe-table`) may be run freely. **Any AWS command that creates, modifies, or deletes resources must be explicitly approved or requested by the user before execution.**
 
+### Terminal Commands
+
+Do not pipe long-running commands through `tail`, `head`, or other filters that hide intermediate output. Let commands print their full output so progress is visible in real time (e.g., test results, CDK deploy status, lint findings). Truncation makes it impossible to tell whether a command is still running or has stalled.
+
 ## Project Layout
 
 ```

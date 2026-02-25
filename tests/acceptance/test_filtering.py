@@ -1,6 +1,6 @@
 """Filtering tests.
 
-Covers TODO section 9 (Filtering) — bbox, datetime, property filters.
+Covers TODO section 9 (Filtering) — bbox and property filters.
 """
 
 from __future__ import annotations

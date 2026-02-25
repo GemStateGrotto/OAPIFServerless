@@ -68,8 +68,8 @@ AWS credentials.
 - [x] `GET /collections` — 200, `collections` array, each entry has id/title/links
 - [x] `GET /collections/{id}` — 200 for existing collection; 404 for nonexistent
 - [x] `GET /collections/{id}/schema` — 200, valid JSON Schema with `x-ogc-role`
-- [ ] `GET /collections/{id}/items?organization=...` — 200, GeoJSON FeatureCollection
-- [ ] `GET /collections/{id}/items/{featureId}?organization=...` — 200 for existing public feature; 404 for nonexistent
+- [x] `GET /collections/{id}/items?organization=...` — 200, GeoJSON FeatureCollection
+- [x] `GET /collections/{id}/items/{featureId}?organization=...` — 200 for existing public feature; 404 for nonexistent
 - [x] Verify all response `links[].href` values use the custom domain, not the raw API Gateway URL
 
 ## 2. Authentication & Token Lifecycle
@@ -130,8 +130,10 @@ AWS credentials.
 ## 9. Filtering
 
 - [x] `bbox` query parameter — only features within bbox returned
-- [ ] `datetime` query parameter — only features matching temporal filter returned
 - [x] Property filter query parameters — correct subset returned
+
+> **Note:** `datetime` filtering (OGC 17-069r4 §7.15.4) is intentionally not
+> supported.  The collection data model has no temporal property to filter on.
 
 ## 10. OPTIONS / CORS
 
@@ -142,5 +144,4 @@ AWS credentials.
 
 - [x] 404 for nonexistent collection
 - [x] 404 for nonexistent feature
-- [ ] 405 for unsupported method on a valid path
 - [x] Response bodies follow OGC exception schema (`code`, `description`)

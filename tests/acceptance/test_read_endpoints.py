@@ -1,11 +1,14 @@
-"""Read endpoint tests — landing page, conformance, API definition.
+"""Read endpoint tests — landing page, conformance, API definition, items.
 
 Covers TODO sections 1 (Read Endpoints) and 2 (Authentication & Token Lifecycle).
 """
 
 from __future__ import annotations
 
+import httpx
 import pytest
+
+from tests.acceptance.conftest import COLLECTION_ID, create_feature, make_test_feature
 
 pytestmark = pytest.mark.acceptance
 
@@ -201,3 +204,133 @@ class TestOpenAPI:
         resp = client.get("/api")
         ct = resp.headers.get("content-type", "")
         assert "openapi" in ct or "json" in ct
+
+
+# ---------------------------------------------------------------------------
+# GET /collections/{id}/items?organization=... — Unauthenticated items
+# ---------------------------------------------------------------------------
+
+
+class TestUnauthenticatedItems:
+    """Unauthenticated GET items with organization query parameter."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_public_feature(
+        self,
+        admin_client: httpx.Client,
+        test_run_id: str,
+    ) -> None:
+        """Create a public feature for unauthenticated listing."""
+        self._tag = f"{test_run_id}-anon-items"
+        body = make_test_feature(
+            test_run_id,
+            name="AnonItems-Public",
+            visibility="public",
+            extra_props={"anon_items_tag": self._tag},
+        )
+        resp = admin_client.post(
+            f"/collections/{COLLECTION_ID}/items",
+            json=body,
+        )
+        assert resp.status_code == 201
+
+    def test_anon_items_returns_geojson_feature_collection(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """GET /collections/{id}/items?organization=... returns a valid GeoJSON FeatureCollection."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"organization": "TestOrgA"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type"] == "FeatureCollection"
+        assert "features" in body
+        assert isinstance(body["features"], list)
+        assert "links" in body
+        assert "numberReturned" in body
+
+    def test_anon_items_features_have_correct_structure(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """Each feature in the response has type, geometry, properties, and id."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"organization": "TestOrgA", "limit": "10"},
+        )
+        assert resp.status_code == 200
+        features = resp.json()["features"]
+        assert len(features) > 0, "Expected at least one feature"
+        for feat in features:
+            assert feat["type"] == "Feature"
+            assert "geometry" in feat
+            assert "properties" in feat
+            assert "id" in feat
+
+    def test_anon_items_includes_seeded_feature(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """The seeded public feature appears in the unauthenticated listing."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"organization": "TestOrgA", "limit": "100"},
+        )
+        assert resp.status_code == 200
+        features = resp.json()["features"]
+        tagged = [f for f in features if f["properties"].get("anon_items_tag") == self._tag]
+        assert len(tagged) >= 1, "Expected seeded public feature in results"
+        assert tagged[0]["properties"]["name"] == "AnonItems-Public"
+
+
+# ---------------------------------------------------------------------------
+# GET /collections/{id}/items/{featureId}?organization=... — Single feature
+# ---------------------------------------------------------------------------
+
+
+class TestUnauthenticatedSingleFeature:
+    """Unauthenticated GET single feature with organization param."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_feature(
+        self,
+        admin_client: httpx.Client,
+        test_run_id: str,
+    ) -> None:
+        """Create a public feature and store its ID for retrieval tests."""
+        self._feature_id, self._etag = create_feature(
+            admin_client,
+            test_run_id,
+            name="AnonSingle-Public",
+            visibility="public",
+        )
+
+    def test_anon_get_existing_public_feature(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """GET existing public feature with organization param returns 200."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items/{self._feature_id}",
+            params={"organization": "TestOrgA"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type"] == "Feature"
+        assert body["id"] == self._feature_id
+        assert body["properties"]["name"] == "AnonSingle-Public"
+        assert "geometry" in body
+        assert "ETag" in resp.headers or "etag" in resp.headers
+
+    def test_anon_get_nonexistent_feature_404(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """GET nonexistent feature returns 404."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items/does-not-exist-xyz",
+            params={"organization": "TestOrgA"},
+        )
+        assert resp.status_code == 404

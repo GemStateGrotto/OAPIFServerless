@@ -201,7 +201,6 @@ class FeatureDAL:
         limit: int = 10,
         cursor: str | None = None,
         bbox: tuple[float, float, float, float] | None = None,
-        datetime_filter: str | None = None,
         property_filters: dict[str, Any] | None = None,
         visibility_filter: list[str] | None = None,
     ) -> QueryResult:
@@ -223,8 +222,6 @@ class FeatureDAL:
             Opaque pagination token from a previous ``QueryResult``.
         bbox:
             Bounding box ``(west, south, east, north)`` in WGS 84.
-        datetime_filter:
-            ISO 8601 instant or interval — *not yet implemented*.
         property_filters:
             Key-value pairs to match against feature properties.
         visibility_filter:
@@ -235,9 +232,6 @@ class FeatureDAL:
         QueryResult
             Features and an optional cursor for the next page.
         """
-        if datetime_filter is not None:
-            logger.warning("datetime_filter is accepted but not yet implemented")
-
         pk = Feature.make_pk(organization, collection_id)
         key_condition = Key("PK").eq(pk) & Key("SK").begins_with("FEATURE#")
 
