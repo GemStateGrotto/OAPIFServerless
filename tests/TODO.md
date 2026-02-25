@@ -32,13 +32,13 @@ AWS credentials.
 
 | Username | Email | Org Group | Role | Visibility Groups |
 |---|---|---|---|---|
-| `test-editor` | test-editor@oapif.test | `org:GemStateGrotto` | `editor` | `GemStateGrotto:members` |
-| `test-admin` | test-admin@oapif.test | `org:GemStateGrotto` | `admin` | `GemStateGrotto:members`, `GemStateGrotto:restricted` |
-| `test-viewer` | test-viewer@oapif.test | `org:GemStateGrotto` | `viewer` | — |
+| `test-editor` | test-editor@oapif.test | `org:TestOrgA` | `editor` | `TestOrgA:members` |
+| `test-admin` | test-admin@oapif.test | `org:TestOrgA` | `admin` | `TestOrgA:members`, `TestOrgA:restricted` |
+| `test-viewer` | test-viewer@oapif.test | `org:TestOrgA` | `viewer` | — |
 | `test-other-org` | test-other-org@oapif.test | `org:TestOrgB` | `editor` | `TestOrgB:members` |
 
-**Test collection:** `acceptance-caves` — a Point collection with `name` (required),
-`depth_m`, `survey_date`, `status` properties; mapped to both `GemStateGrotto` and
+**Test collection:** `acceptance-test` — a Point collection with `name` (required),
+`depth_m`, `survey_date`, `status` properties; mapped to both `TestOrgA` and
 `TestOrgB` organizations.
 
 ---
@@ -105,12 +105,12 @@ AWS credentials.
 ## 6. Row-Level Access Control (Org + Visibility)
 
 - [x] `anon_client` `GET /items` without `organization` param — 400
-- [x] `anon_client` `GET /items?organization=GemStateGrotto` — only `public` features returned
+- [x] `anon_client` `GET /items?organization=TestOrgA` — only `public` features returned
 - [x] `editor_client` (members group) — sees `public` + `members` but not `restricted`
 - [x] `admin_client` (members + restricted groups) — sees `public` + `members` + `restricted`
 - [x] `viewer_client` (no visibility groups) — sees only `public`
-- [x] `other_org_client` (org:TestOrgB) — never sees GemStateGrotto features
-- [x] `editor_client` `POST` — `organization` auto-populated as `GemStateGrotto` from token
+- [x] `other_org_client` (org:TestOrgB) — never sees TestOrgA features
+- [x] `editor_client` `POST` — `organization` auto-populated as `TestOrgA` from token
 - [x] `editor_client` `PUT`/`PATCH` attempting to change `organization` — rejected
 
 ## 7. Field-Level Authorization

@@ -49,7 +49,7 @@ class TestCollections:
         assert "self" in rels
 
     def test_acceptance_collection_present(self, anon_client: httpx.Client) -> None:
-        """The acceptance-caves test collection is listed."""
+        """The acceptance-test test collection is listed."""
         body = anon_client.get("/collections").json()
         ids = [c["id"] for c in body["collections"]]
         assert COLLECTION_ID in ids, f"Expected '{COLLECTION_ID}' in {ids}"

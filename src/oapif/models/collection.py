@@ -150,9 +150,9 @@ class OrgAccessConfig:
     access groups.
     """
 
-    cognito_group: str  # e.g. "org:GemStateGrotto"
+    cognito_group: str  # e.g. "org:TestOrgA"
     access_groups: dict[str, str] = field(default_factory=dict)
-    # e.g. {"members": "GemStateGrotto:members", "restricted": "GemStateGrotto:restricted"}
+    # e.g. {"members": "TestOrgA:members", "restricted": "TestOrgA:restricted"}
 
     def to_dict(self) -> dict[str, Any]:
         return {

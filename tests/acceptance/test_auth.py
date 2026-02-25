@@ -25,7 +25,7 @@ class TestAuthentication:
         padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded))
         groups = payload.get("cognito:groups", [])
-        assert "org:GemStateGrotto" in groups
+        assert "org:TestOrgA" in groups
         assert "editor" in groups
 
     def test_admin_token_has_admin_role(self, admin_token: str) -> None:
@@ -35,7 +35,7 @@ class TestAuthentication:
         payload = json.loads(base64.urlsafe_b64decode(padded))
         groups = payload.get("cognito:groups", [])
         assert "admin" in groups
-        assert "org:GemStateGrotto" in groups
+        assert "org:TestOrgA" in groups
 
     def test_authenticated_collections_same_shape(
         self,
@@ -61,7 +61,7 @@ class TestAuthentication:
         )
         try:
             resp = client.post(
-                "/collections/acceptance-caves/items",
+                "/collections/acceptance-test/items",
                 json={"type": "Feature", "geometry": None, "properties": {"name": "x"}},
             )
             assert resp.status_code == 401

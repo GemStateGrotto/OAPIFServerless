@@ -97,17 +97,17 @@ pytest -m acceptance                   # 2. Run acceptance tests
 
 - Cognito groups: `org:TestOrgB`, `TestOrgB:members`, `TestOrgB:restricted`
 - Cognito users with permanent passwords and group memberships:
-  - `test-editor` — `org:GemStateGrotto`, `editor`, `GemStateGrotto:members`
-  - `test-admin`  — `org:GemStateGrotto`, `admin`, `GemStateGrotto:members`, `GemStateGrotto:restricted`
-  - `test-viewer` — `org:GemStateGrotto`, `viewer`
+  - `test-editor` — `org:TestOrgA`, `editor`, `TestOrgA:members`
+  - `test-admin`  — `org:TestOrgA`, `admin`, `TestOrgA:members`, `TestOrgA:restricted`
+  - `test-viewer` — `org:TestOrgA`, `viewer`
   - `test-other-org` — `org:TestOrgB`, `editor`, `TestOrgB:members`
-- DynamoDB config item: `acceptance-caves` collection (Point, both orgs)
+- DynamoDB config item: `acceptance-test` collection (Point, both orgs)
 
 **What the teardown script removes:**
 
 - The four test users
 - The `org:TestOrgB` groups (stack-managed groups are left alone)
-- All features and the config item for `acceptance-caves`
+- All features and the config item for `acceptance-test`
 
 **Test conftest** authenticates users via `admin-initiate-auth` (ADMIN_USER_PASSWORD_AUTH)
 to get real ID tokens with `cognito:groups` claims. Base URL is derived from CFN stack

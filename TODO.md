@@ -66,11 +66,11 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 - [x] Define Cognito User Pool with OIDC configuration (CDK)
   - [x] Configure hosted UI domain for OIDC authorization code flow
-  - [x] Define app client for QGIS plugin (PKCE, authorization code flow)
+  - [x] Define app client for interactive login (PKCE, authorization code flow)
   - [x] Define app client for machine-to-machine (client credentials, optional)
 - [x] Define Cognito groups matching access control model:
-  - [x] Organization groups (one per org, e.g., `org:GemStateGrotto`)
-  - [x] Visibility-level groups within each org (e.g., `GemStateGrotto:restricted`, `GemStateGrotto:members`)
+  - [x] Organization groups (one per org, e.g., `org:TestOrgA`)
+  - [x] Visibility-level groups within each org (e.g., `TestOrgA:restricted`, `TestOrgA:members`)
   - [x] Role groups (e.g., `editor`, `admin`, `viewer`, per-collection variants)
 - [x] Configure API Gateway with optional JWT authorizer (allow unauthenticated GET requests)
 - [x] Implement Lambda middleware to extract and validate Cognito claims and group memberships

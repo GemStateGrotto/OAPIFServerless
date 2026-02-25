@@ -42,11 +42,11 @@ def _make_event(
 ) -> dict[str, Any]:
     """Build a minimal API Gateway HTTP API v2 event with optional JWT claims."""
     event: dict[str, Any] = {
-        "rawPath": "/collections/caves/items",
+        "rawPath": "/collections/test-collection/items",
         "requestContext": {
             "domainName": "api.example.com",
             "stage": "$default",
-            "http": {"method": "GET", "path": "/collections/caves/items"},
+            "http": {"method": "GET", "path": "/collections/test-collection/items"},
         },
         "queryStringParameters": query,
     }
@@ -166,8 +166,8 @@ class TestExtractOrganization:
         assert _extract_organization(groups) == ""
 
     def test_single_org_group(self) -> None:
-        groups = frozenset({"org:GemStateGrotto", "editor"})
-        assert _extract_organization(groups) == "GemStateGrotto"
+        groups = frozenset({"org:TestOrgA", "editor"})
+        assert _extract_organization(groups) == "TestOrgA"
 
     def test_multiple_org_groups_picks_first_alphabetically(self) -> None:
         groups = frozenset({"org:Zeta", "org:Alpha"})
@@ -200,7 +200,7 @@ class TestExtractRoles:
         assert _extract_roles(groups) == frozenset({"admin", "editor", "viewer"})
 
     def test_collection_scoped_role(self) -> None:
-        groups = frozenset({"caves:editor", "mines:admin"})
+        groups = frozenset({"collection-a:editor", "collection-b:admin"})
         assert _extract_roles(groups) == frozenset({"editor", "admin"})
 
     def test_non_role_group_ignored(self) -> None:
@@ -208,7 +208,7 @@ class TestExtractRoles:
         assert _extract_roles(groups) == frozenset()
 
     def test_mixed(self) -> None:
-        groups = frozenset({"admin", "caves:editor", "org:Test"})
+        groups = frozenset({"admin", "collection-a:editor", "org:Test"})
         roles = _extract_roles(groups)
         assert "admin" in roles
         assert "editor" in roles
@@ -319,14 +319,14 @@ class TestResolveAuthAuthenticated:
         claims = _make_claims(
             sub="user-42",
             email="alice@example.com",
-            groups=["org:GemStateGrotto", "editor", "GemStateGrotto:members"],
+            groups=["org:TestOrgA", "editor", "TestOrgA:members"],
         )
         event = _make_event(claims=claims)
         ctx = resolve_auth_context(event)
         assert ctx.authenticated is True
         assert ctx.sub == "user-42"
         assert ctx.email == "alice@example.com"
-        assert ctx.organization == "GemStateGrotto"
+        assert ctx.organization == "TestOrgA"
         assert "editor" in ctx.roles
         assert "public" in ctx.visibility_filter
         assert "members" in ctx.visibility_filter

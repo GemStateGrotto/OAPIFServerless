@@ -62,7 +62,7 @@ class TestErrorResponses:
         """GET nonexistent feature returns 404."""
         resp = anon_client.get(
             f"/collections/{COLLECTION_ID}/items/nonexistent-feature-id",
-            params={"organization": "GemStateGrotto"},
+            params={"organization": "TestOrgA"},
         )
         assert resp.status_code == 404
 

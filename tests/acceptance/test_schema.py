@@ -81,7 +81,7 @@ class TestSchemaValidation:
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [-114.5, 44.0]},
             "properties": {
-                "name": "Type Test Cave",
+                "name": "Type Test Feature",
                 "depth_m": "not-a-number",  # should be number
                 "test_run_id": test_run_id,
             },

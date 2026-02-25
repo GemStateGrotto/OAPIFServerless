@@ -288,15 +288,15 @@ def sample_collection_config() -> CollectionConfig:
     )
 
     return CollectionConfig(
-        collection_id="caves",
-        title="Caves",
-        description="Cave survey data",
+        collection_id="test-collection",
+        title="Features",
+        description="Test feature data",
         extent=CollectionExtent(
             spatial=SpatialExtent(bbox=[[-117.0, 42.0, -111.0, 49.0]]),
             temporal=TemporalExtent(interval=[["2020-01-01T00:00:00Z", None]]),
         ),
         properties_schema={
-            "name": PropertySchema(type="string", description="Cave name"),
+            "name": PropertySchema(type="string", description="Feature name"),
             "depth_m": PropertySchema(
                 type="number",
                 description="Depth in meters",
@@ -309,7 +309,7 @@ def sample_collection_config() -> CollectionConfig:
             ),
             "status": PropertySchema(
                 type="string",
-                description="Cave status",
+                description="Feature status",
                 enum=["active", "closed", "unknown"],
             ),
         },
@@ -317,11 +317,11 @@ def sample_collection_config() -> CollectionConfig:
         visibility_values=["public", "members", "restricted"],
         geometry_type="Point",
         organizations={
-            "GemStateGrotto": OrgAccessConfig(
-                cognito_group="org:GemStateGrotto",
+            "TestOrgA": OrgAccessConfig(
+                cognito_group="org:TestOrgA",
                 access_groups={
-                    "members": "GemStateGrotto:members",
-                    "restricted": "GemStateGrotto:restricted",
+                    "members": "TestOrgA:members",
+                    "restricted": "TestOrgA:restricted",
                 },
             ),
         },

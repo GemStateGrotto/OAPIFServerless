@@ -114,9 +114,9 @@ def _setup_with_features(
             collection_id=sample_collection_config.collection_id,
             feature_data={
                 "geometry": {"type": "Point", "coordinates": [-114.0 + i * 0.1, 43.0]},
-                "properties": {"name": f"Cave {i}", "visibility": "public"},
+                "properties": {"name": f"Feature {i}", "visibility": "public"},
             },
-            organization="GemStateGrotto",
+            organization="TestOrgA",
             visibility="public",
         )
 
@@ -253,7 +253,7 @@ class TestCollections:
         resp = handler(event, None)
         body = json.loads(resp["body"])
         assert len(body["collections"]) == 1
-        assert body["collections"][0]["id"] == "caves"
+        assert body["collections"][0]["id"] == "test-collection"
 
     def test_collections_has_self_link(self, _setup_dals: None) -> None:
         event = _make_event(path="/collections")
@@ -277,12 +277,12 @@ class TestSingleCollection:
     """Tests for the single collection endpoint."""
 
     def test_collection_found(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves")
+        event = _make_event(path="/collections/test-collection")
         resp = handler(event, None)
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
-        assert body["id"] == "caves"
-        assert body["title"] == "Caves"
+        assert body["id"] == "test-collection"
+        assert body["title"] == "Features"
 
     def test_collection_not_found(self, _setup_dals: None) -> None:
         event = _make_event(path="/collections/nonexistent")
@@ -290,7 +290,7 @@ class TestSingleCollection:
         assert resp["statusCode"] == 404
 
     def test_collection_has_links(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves")
+        event = _make_event(path="/collections/test-collection")
         resp = handler(event, None)
         body = json.loads(resp["body"])
         rels = {link["rel"] for link in body["links"]}
@@ -299,7 +299,7 @@ class TestSingleCollection:
         assert "describedby" in rels
 
     def test_collection_content_type(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves")
+        event = _make_event(path="/collections/test-collection")
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/json"
 
@@ -313,7 +313,7 @@ class TestItems:
     """Tests for the feature collection items endpoint."""
 
     def test_items_requires_organization(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/items")
+        event = _make_event(path="/collections/test-collection/items")
         resp = handler(event, None)
         assert resp["statusCode"] == 400
         body = json.loads(resp["body"])
@@ -329,8 +329,8 @@ class TestItems:
 
     def test_items_empty(self, _setup_with_collection: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert resp["statusCode"] == 200
@@ -341,16 +341,16 @@ class TestItems:
 
     def test_items_content_type_is_geojson(self, _setup_with_collection: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/geo+json"
 
     def test_items_validates(self, _setup_with_collection: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -358,8 +358,8 @@ class TestItems:
 
     def test_items_with_features(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -368,8 +368,8 @@ class TestItems:
 
     def test_items_has_links(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -379,8 +379,8 @@ class TestItems:
 
     def test_items_has_timestamp(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -388,8 +388,8 @@ class TestItems:
 
     def test_items_limit(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto", "limit": "1"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA", "limit": "1"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -402,8 +402,8 @@ class TestItems:
     def test_items_pagination_cursor(self, _setup_with_features: None) -> None:
         # Get first page
         event1 = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto", "limit": "2"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA", "limit": "2"},
         )
         resp1 = handler(event1, None)
         body1 = json.loads(resp1["body"])
@@ -421,8 +421,8 @@ class TestItems:
 
         # Get second page
         event2 = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto", "limit": "2", "cursor": cursor},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA", "limit": "2", "cursor": cursor},
         )
         resp2 = handler(event2, None)
         body2 = json.loads(resp2["body"])
@@ -431,7 +431,7 @@ class TestItems:
     def test_items_org_isolation(self, _setup_with_features: None) -> None:
         """Different org sees no features."""
         event = _make_event(
-            path="/collections/caves/items",
+            path="/collections/test-collection/items",
             query={"organization": "OtherOrg"},
         )
         resp = handler(event, None)
@@ -440,19 +440,19 @@ class TestItems:
 
     def test_items_property_filter(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
-            query={"organization": "GemStateGrotto", "name": "Cave 0"},
+            path="/collections/test-collection/items",
+            query={"organization": "TestOrgA", "name": "Feature 0"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
         assert len(body["features"]) == 1
-        assert body["features"][0]["properties"]["name"] == "Cave 0"
+        assert body["features"][0]["properties"]["name"] == "Feature 0"
 
     def test_items_bbox_filter(self, _setup_with_features: None) -> None:
         event = _make_event(
-            path="/collections/caves/items",
+            path="/collections/test-collection/items",
             query={
-                "organization": "GemStateGrotto",
+                "organization": "TestOrgA",
                 "bbox": "-114.05,42.9,-113.95,43.1",
             },
         )
@@ -471,26 +471,26 @@ class TestSingleFeature:
     """Tests for the single feature endpoint."""
 
     def test_feature_requires_organization(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/items/some-id")
+        event = _make_event(path="/collections/test-collection/items/some-id")
         resp = handler(event, None)
         assert resp["statusCode"] == 400
 
     def test_feature_not_found(self, _setup_with_collection: None) -> None:
         event = _make_event(
-            path="/collections/caves/items/nonexistent",
-            query={"organization": "GemStateGrotto"},
+            path="/collections/test-collection/items/nonexistent",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert resp["statusCode"] == 404
 
     def test_feature_found(self, _setup_with_features: None, dal: Any) -> None:
         # Get the ID of a feature we created
-        result = dal.query_features("caves", "GemStateGrotto", limit=1)
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
         feature = result.features[0]
 
         event = _make_event(
-            path=f"/collections/caves/items/{feature.id}",
-            query={"organization": "GemStateGrotto"},
+            path=f"/collections/test-collection/items/{feature.id}",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert resp["statusCode"] == 200
@@ -499,23 +499,23 @@ class TestSingleFeature:
         assert body["id"] == feature.id
 
     def test_feature_content_type_is_geojson(self, _setup_with_features: None, dal: Any) -> None:
-        result = dal.query_features("caves", "GemStateGrotto", limit=1)
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
         feature = result.features[0]
 
         event = _make_event(
-            path=f"/collections/caves/items/{feature.id}",
-            query={"organization": "GemStateGrotto"},
+            path=f"/collections/test-collection/items/{feature.id}",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/geo+json"
 
     def test_feature_has_etag_header(self, _setup_with_features: None, dal: Any) -> None:
-        result = dal.query_features("caves", "GemStateGrotto", limit=1)
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
         feature = result.features[0]
 
         event = _make_event(
-            path=f"/collections/caves/items/{feature.id}",
-            query={"organization": "GemStateGrotto"},
+            path=f"/collections/test-collection/items/{feature.id}",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         assert "ETag" in resp["headers"]
@@ -523,12 +523,12 @@ class TestSingleFeature:
         assert resp["headers"]["ETag"].endswith('"')
 
     def test_feature_has_links(self, _setup_with_features: None, dal: Any) -> None:
-        result = dal.query_features("caves", "GemStateGrotto", limit=1)
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
         feature = result.features[0]
 
         event = _make_event(
-            path=f"/collections/caves/items/{feature.id}",
-            query={"organization": "GemStateGrotto"},
+            path=f"/collections/test-collection/items/{feature.id}",
+            query={"organization": "TestOrgA"},
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
@@ -538,11 +538,11 @@ class TestSingleFeature:
 
     def test_feature_org_isolation(self, _setup_with_features: None, dal: Any) -> None:
         """Wrong org returns 404."""
-        result = dal.query_features("caves", "GemStateGrotto", limit=1)
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
         feature = result.features[0]
 
         event = _make_event(
-            path=f"/collections/caves/items/{feature.id}",
+            path=f"/collections/test-collection/items/{feature.id}",
             query={"organization": "WrongOrg"},
         )
         resp = handler(event, None)
@@ -558,17 +558,17 @@ class TestSchema:
     """Tests for the schema endpoint."""
 
     def test_schema_returns_200(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/schema")
+        event = _make_event(path="/collections/test-collection/schema")
         resp = handler(event, None)
         assert resp["statusCode"] == 200
 
     def test_schema_content_type(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/schema")
+        event = _make_event(path="/collections/test-collection/schema")
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/schema+json"
 
     def test_schema_is_valid_json_schema(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/schema")
+        event = _make_event(path="/collections/test-collection/schema")
         resp = handler(event, None)
         body = json.loads(resp["body"])
         jsonschema.Draft202012Validator.check_schema(body)
@@ -580,7 +580,7 @@ class TestSchema:
 
     def test_schema_receivable_variant(self, _setup_with_collection: None) -> None:
         event = _make_event(
-            path="/collections/caves/schema",
+            path="/collections/test-collection/schema",
             query={"type": "receivable"},
         )
         resp = handler(event, None)
@@ -590,10 +590,10 @@ class TestSchema:
         assert "id" not in body["properties"]
 
     def test_schema_uses_api_base_url(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/schema")
+        event = _make_event(path="/collections/test-collection/schema")
         resp = handler(event, None)
         body = json.loads(resp["body"])
-        assert body["$id"] == "https://api.example.com/collections/caves/schema"
+        assert body["$id"] == "https://api.example.com/collections/test-collection/schema"
 
 
 # ===================================================================
@@ -629,10 +629,10 @@ class TestOpenAPI:
         event = _make_event(path="/api")
         resp = handler(event, None)
         body = json.loads(resp["body"])
-        assert "/collections/caves" in body["paths"]
-        assert "/collections/caves/items" in body["paths"]
-        assert "/collections/caves/items/{featureId}" in body["paths"]
-        assert "/collections/caves/schema" in body["paths"]
+        assert "/collections/test-collection" in body["paths"]
+        assert "/collections/test-collection/items" in body["paths"]
+        assert "/collections/test-collection/items/{featureId}" in body["paths"]
+        assert "/collections/test-collection/schema" in body["paths"]
 
     def test_api_server_url(self, _setup_dals: None) -> None:
         event = _make_event(path="/api")
@@ -658,7 +658,7 @@ class TestErrorResponses:
         assert "title" in body
 
     def test_400_is_problem_json(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/caves/items")
+        event = _make_event(path="/collections/test-collection/items")
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/problem+json"
         body = json.loads(resp["body"])

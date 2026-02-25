@@ -37,7 +37,7 @@ pytestmark = pytest.mark.unit
 # ---------------------------------------------------------------------------
 
 ORG = "TestOrg"
-COLLECTION = "caves"
+COLLECTION = "test-collection"
 
 
 def _point_feature(lon: float = -116.0, lat: float = 43.0, **extra_props: Any) -> dict[str, Any]:
@@ -539,7 +539,7 @@ class TestHandlerUpdateFieldAuth:
         """Editor can modify feature properties via PATCH."""
         created = dal.create_feature(COLLECTION, _point_feature(), ORG)
         patch: dict[str, Any] = {
-            "properties": {"name": "Renamed Cave"},
+            "properties": {"name": "Renamed Feature"},
         }
         event = _make_event(
             method="PATCH",
@@ -551,7 +551,7 @@ class TestHandlerUpdateFieldAuth:
         resp = handler(event, None)
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
-        assert body["properties"]["name"] == "Renamed Cave"
+        assert body["properties"]["name"] == "Renamed Feature"
 
     def test_editor_cannot_patch_visibility(self, _setup_with_collection: None, dal: FeatureDAL) -> None:
         """Editor cannot change visibility via PATCH."""

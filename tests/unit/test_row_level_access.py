@@ -36,7 +36,7 @@ pytestmark = pytest.mark.unit
 
 ORG_A = "OrgAlpha"
 ORG_B = "OrgBeta"
-COLLECTION = "caves"
+COLLECTION = "test-collection"
 
 
 def _point_feature(lon: float = -116.0, lat: float = 43.0, **extra_props: Any) -> dict[str, Any]:

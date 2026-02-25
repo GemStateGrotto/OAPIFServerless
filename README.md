@@ -12,7 +12,7 @@ OAPIFServerless provides a low-cost, usage-based geospatial feature server that 
 - **OGC API - Features Part 4 (CRUD):** Create, Replace, Update, and Delete operations for authorized users, with JSON Merge Patch support
 - **Optimistic Concurrency:** ETag-based optimistic locking on writes to prevent lost updates in multi-user environments
 - **Change Tracking:** An append-only change log table in DynamoDB records all mutations for auditability (no automated rollback; admins can manually restore features via direct DynamoDB access)
-- **Organization Tenancy:** Each feature belongs to an `organization` (e.g., `GemStateGrotto`), auto-populated on creation from the caller's Cognito group. Organization acts as a hard tenant boundary — no query ever returns features from multiple organizations
+- **Organization Tenancy:** Each feature belongs to an `organization` (e.g., `TestOrgA`), auto-populated on creation from the caller's Cognito group. Organization acts as a hard tenant boundary — no query ever returns features from multiple organizations
 - **Row-Level Access Control:** Within an organization, features can be further restricted by `visibility` (`public`, `members`, `restricted`) mapped to Cognito groups, allowing sensitive locations to be hidden from unauthorized users
 - **Field-Level Authorization:** Server-enforced controls that allow some groups to edit feature geometry/attributes while others can only manage group membership metadata
 - **Dynamic Schema Publishing:** Each configured collection publishes its schema at `/collections/{collectionId}/schema`, enabling clients to discover field names, types, and constraints at runtime
@@ -120,7 +120,7 @@ Each configured collection maps to a DynamoDB table (or a shared table with coll
 | `geometry` | String (GeoJSON) | Feature geometry |
 | `properties` | Map | Feature properties |
 | `etag` | String | Version hash for optimistic concurrency |
-| `organization` | String | Hard tenant boundary, auto-populated on creation from caller's Cognito org group (e.g., `GemStateGrotto`). Immutable after creation. |
+| `organization` | String | Hard tenant boundary, auto-populated on creation from caller's Cognito org group (e.g., `TestOrgA`). Immutable after creation. |
 | `visibility` | String (enum) | Row-level access within org: `public`, `members`, `restricted` |
 | `updated_at` | String (ISO 8601) | Last modification timestamp |
 | `updated_by` | String | Cognito `sub` of last editor |
@@ -159,7 +159,7 @@ All write endpoints (POST, PUT, PATCH, DELETE) always require authentication.
 
 Every feature belongs to exactly one `organization`. This value is **auto-populated on creation** from the caller's Cognito organization group (each user belongs to exactly one org group). Organization is a **hard tenant boundary**: all queries are scoped to the caller's organization, and no API response ever mixes features from different organizations. The `organization` field is immutable after creation and cannot be changed via PUT or PATCH.
 
-**Example:** A user in the `GemStateGrotto` org group creates a feature → the feature's `organization` is set to `GemStateGrotto`. Users in other org groups will never see this feature.
+**Example:** A user in the `TestOrgA` org group creates a feature → the feature's `organization` is set to `TestOrgA`. Users in other org groups will never see this feature.
 
 ### Row-Level Feature Visibility
 

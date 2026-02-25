@@ -22,10 +22,10 @@ class TestAnonymousAccess:
         assert resp.status_code == 400
 
     def test_anon_items_with_org_200(self, anon_client: httpx.Client) -> None:
-        """GET /items?organization=GemStateGrotto returns 200."""
+        """GET /items?organization=TestOrgA returns 200."""
         resp = anon_client.get(
             f"/collections/{COLLECTION_ID}/items",
-            params={"organization": "GemStateGrotto"},
+            params={"organization": "TestOrgA"},
         )
         assert resp.status_code == 200
 
@@ -52,7 +52,7 @@ class TestAnonymousAccess:
         # Query as anonymous
         resp = anon_client.get(
             f"/collections/{COLLECTION_ID}/items",
-            params={"organization": "GemStateGrotto", "limit": "100"},
+            params={"organization": "TestOrgA", "limit": "100"},
         )
         assert resp.status_code == 200
         features = resp.json()["features"]
@@ -128,16 +128,16 @@ class TestVisibilityByRole:
 
 
 class TestOrgIsolation:
-    """Cross-org isolation — TestOrgB must never see GemStateGrotto features."""
+    """Cross-org isolation — TestOrgB must never see TestOrgA features."""
 
-    def test_other_org_cannot_see_gem_state_features(
+    def test_other_org_cannot_see_primary_org_features(
         self,
         editor_client: httpx.Client,
         other_org_client: httpx.Client,
         test_run_id: str,
     ) -> None:
-        """Features created by GemStateGrotto editor are invisible to TestOrgB."""
-        # Create a feature as GemStateGrotto editor
+        """Features created by TestOrgA editor are invisible to TestOrgB."""
+        # Create a feature as TestOrgA editor
         fid, _ = create_feature(editor_client, test_run_id, name="Org Isolation Test")
 
         # TestOrgB editor should not see it in their items
@@ -149,13 +149,13 @@ class TestOrgIsolation:
         feature_ids = [f["id"] for f in resp.json()["features"]]
         assert fid not in feature_ids
 
-    def test_other_org_cannot_get_gem_state_feature(
+    def test_other_org_cannot_get_primary_org_feature(
         self,
         editor_client: httpx.Client,
         other_org_client: httpx.Client,
         test_run_id: str,
     ) -> None:
-        """Direct GET of a GemStateGrotto feature by TestOrgB returns 404."""
+        """Direct GET of a TestOrgA feature by TestOrgB returns 404."""
         fid, _ = create_feature(editor_client, test_run_id, name="Org GET Test")
 
         resp = other_org_client.get(f"/collections/{COLLECTION_ID}/items/{fid}")
@@ -175,7 +175,7 @@ class TestOrganizationAutoPopulation:
         resp = editor_client.get(f"/collections/{COLLECTION_ID}/items/{fid}")
         assert resp.status_code == 200
         props = resp.json()["properties"]
-        assert props.get("organization") == "GemStateGrotto"
+        assert props.get("organization") == "TestOrgA"
 
     def test_put_cannot_change_org(
         self,

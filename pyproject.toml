@@ -9,7 +9,7 @@ description = "AWS Serverless OGC API - Features implementation backed by Dynamo
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.14"
-authors = [{ name = "GemStateGrotto" }]
+authors = [{ name = "OAPIFServerless Contributors" }]
 
 dependencies = [
     "boto3>=1.35",

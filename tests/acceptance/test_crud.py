@@ -23,7 +23,7 @@ class TestCRUDLifecycle:
     ) -> None:
         """Complete CRUD lifecycle in a single test to ensure ordering."""
         # ── CREATE ──
-        body = make_test_feature(test_run_id, name="Lifecycle Cave", depth_m=100.0)
+        body = make_test_feature(test_run_id, name="Lifecycle Feature", depth_m=100.0)
         create_resp = editor_client.post(
             f"/collections/{COLLECTION_ID}/items",
             json=body,
@@ -37,7 +37,7 @@ class TestCRUDLifecycle:
         etag = create_resp.headers["etag"]
 
         assert feature_id, "Feature should have an assigned ID"
-        assert created["properties"]["name"] == "Lifecycle Cave"
+        assert created["properties"]["name"] == "Lifecycle Feature"
 
         # ── READ ──
         get_resp = editor_client.get(f"/collections/{COLLECTION_ID}/items/{feature_id}")
@@ -45,10 +45,10 @@ class TestCRUDLifecycle:
         assert "etag" in get_resp.headers
         fetched = get_resp.json()
         assert fetched["id"] == feature_id
-        assert fetched["properties"]["name"] == "Lifecycle Cave"
+        assert fetched["properties"]["name"] == "Lifecycle Feature"
 
         # ── REPLACE (PUT) ──
-        put_body = make_test_feature(test_run_id, name="Updated Cave", depth_m=200.0)
+        put_body = make_test_feature(test_run_id, name="Updated Feature", depth_m=200.0)
         put_resp = editor_client.put(
             f"/collections/{COLLECTION_ID}/items/{feature_id}",
             json=put_body,
@@ -60,7 +60,7 @@ class TestCRUDLifecycle:
         assert new_etag != etag, "ETag should change after PUT"
 
         updated = put_resp.json()
-        assert updated["properties"]["name"] == "Updated Cave"
+        assert updated["properties"]["name"] == "Updated Feature"
         assert updated["properties"]["depth_m"] == 200.0
 
         # ── PATCH (JSON Merge Patch) ──
@@ -81,7 +81,7 @@ class TestCRUDLifecycle:
         patched = patch_resp.json()
         assert patched["properties"]["depth_m"] == 250.0
         # Name should be unchanged from PUT
-        assert patched["properties"]["name"] == "Updated Cave"
+        assert patched["properties"]["name"] == "Updated Feature"
 
         # ── DELETE ──
         del_resp = editor_client.delete(

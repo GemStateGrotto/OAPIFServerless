@@ -4,10 +4,10 @@
 # Removes:
 #   - Cognito users:  test-editor, test-admin, test-viewer, test-other-org
 #   - Cognito groups: org:TestOrgB, TestOrgB:members, TestOrgB:restricted
-#   - DynamoDB config: "acceptance-caves" collection config item
-#   - DynamoDB features: all features in the "acceptance-caves" collection
+#   - DynamoDB config: "acceptance-test" collection config item
+#   - DynamoDB features: all features in the "acceptance-test" collection
 #
-# Groups created by the auth stack CDK (org:GemStateGrotto, admin, editor,
+# Groups created by the auth stack CDK (org:TestOrgA, admin, editor,
 # viewer, etc.) are NOT removed — those are managed by the stack lifecycle.
 #
 # Usage:
@@ -80,16 +80,16 @@ for group in "org:TestOrgB" "TestOrgB:members" "TestOrgB:restricted"; do
     fi
 done
 
-# ── Delete acceptance-caves features ─────────────────────────────────
+# ── Delete acceptance-test features ─────────────────────────────────
 
 echo ""
-info "Deleting acceptance-caves features..."
+info "Deleting acceptance-test features..."
 
 FEATURE_COUNT=0
 while true; do
     ITEMS=$(aws dynamodb query --table-name "$FEATURES_TABLE" \
         --key-condition-expression "PK = :pk" \
-        --expression-attribute-values '{":pk": {"S": "COLLECTION#acceptance-caves"}}' \
+        --expression-attribute-values '{":pk": {"S": "COLLECTION#acceptance-test"}}' \
         --projection-expression "PK, SK" \
         --limit 25 \
         --output json 2>/dev/null)
@@ -114,24 +114,24 @@ done
 if [[ "$FEATURE_COUNT" -gt 0 ]]; then
     ok "Deleted $FEATURE_COUNT feature items"
 else
-    skip "No acceptance-caves features found"
+    skip "No acceptance-test features found"
 fi
 
 # ── Delete collection config ────────────────────────────────────────
 
 echo ""
-info "Deleting acceptance-caves collection config..."
+info "Deleting acceptance-test collection config..."
 
 EXISTING=$(aws dynamodb get-item --table-name "$CONFIG_TABLE" \
-    --key '{"PK": {"S": "COLLECTION#acceptance-caves"}, "SK": {"S": "CONFIG"}}' \
+    --key '{"PK": {"S": "COLLECTION#acceptance-test"}, "SK": {"S": "CONFIG"}}' \
     --query "Item.collection_id.S" --output text 2>/dev/null || echo "None")
 
-if [[ "$EXISTING" == "acceptance-caves" ]]; then
+if [[ "$EXISTING" == "acceptance-test" ]]; then
     aws dynamodb delete-item --table-name "$CONFIG_TABLE" \
-        --key '{"PK": {"S": "COLLECTION#acceptance-caves"}, "SK": {"S": "CONFIG"}}'
-    ok "Deleted collection config acceptance-caves"
+        --key '{"PK": {"S": "COLLECTION#acceptance-test"}, "SK": {"S": "CONFIG"}}'
+    ok "Deleted collection config acceptance-test"
 else
-    skip "Collection acceptance-caves config"
+    skip "Collection acceptance-test config"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────

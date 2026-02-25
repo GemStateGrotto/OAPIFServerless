@@ -177,14 +177,14 @@ def seeded_collection(
 ) -> CollectionConfig:
     config = CollectionConfig(
         collection_id=collection_id,
-        title="Test Caves",
-        description="Integration test cave data",
+        title="Test Collection",
+        description="Integration test feature data",
         extent=CollectionExtent(
             spatial=SpatialExtent(bbox=[[-117.0, 42.0, -111.0, 49.0]]),
             temporal=TemporalExtent(interval=[["2024-01-01T00:00:00Z", None]]),
         ),
         properties_schema={
-            "name": PropertySchema(type="string", description="Cave name"),
+            "name": PropertySchema(type="string", description="Feature name"),
             "depth_m": PropertySchema(type="number", description="Depth"),
         },
         required_properties=["name"],
@@ -214,7 +214,7 @@ def seeded_features(
             collection_id=seeded_collection.collection_id,
             feature_data={
                 "geometry": {"type": "Point", "coordinates": [-114.0 + i * 0.5, 43.0 + i * 0.1]},
-                "properties": {"name": f"Cave {i}", "depth_m": 10.0 + i * 5},
+                "properties": {"name": f"Feature {i}", "depth_m": 10.0 + i * 5},
             },
             organization=org_id,
             visibility="public",
@@ -264,7 +264,7 @@ class TestCollectionsIntegration:
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
         assert body["id"] == seeded_collection.collection_id
-        assert body["title"] == "Test Caves"
+        assert body["title"] == "Test Collection"
 
     def test_get_nonexistent_collection(self) -> None:
         resp = handler(_make_event(path="/collections/does-not-exist"), None)
@@ -386,13 +386,13 @@ class TestItemsIntegration:
         resp = handler(
             _make_event(
                 path=f"/collections/{seeded_collection.collection_id}/items",
-                query={"organization": org_id, "name": "Cave 2"},
+                query={"organization": org_id, "name": "Feature 2"},
             ),
             None,
         )
         body = json.loads(resp["body"])
         assert body["numberReturned"] == 1
-        assert body["features"][0]["properties"]["name"] == "Cave 2"
+        assert body["features"][0]["properties"]["name"] == "Feature 2"
 
     def test_items_missing_org_returns_400(self, seeded_collection: CollectionConfig) -> None:
         resp = handler(

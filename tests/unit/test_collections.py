@@ -30,11 +30,11 @@ class TestCollectionDALGetCollection:
     ) -> None:
         """Retrieved collection matches what was stored."""
         collection_dal.put_collection(sample_collection_config)
-        result = collection_dal.get_collection("caves")
+        result = collection_dal.get_collection("test-collection")
 
-        assert result.collection_id == "caves"
-        assert result.title == "Caves"
-        assert result.description == "Cave survey data"
+        assert result.collection_id == "test-collection"
+        assert result.title == "Features"
+        assert result.description == "Test feature data"
         assert result.geometry_type == "Point"
         assert "name" in result.properties_schema
         assert result.properties_schema["name"].type == "string"
@@ -54,7 +54,7 @@ class TestCollectionDALGetCollection:
     ) -> None:
         """Spatial and temporal extents survive round-trip."""
         collection_dal.put_collection(sample_collection_config)
-        result = collection_dal.get_collection("caves")
+        result = collection_dal.get_collection("test-collection")
 
         assert result.extent.spatial.bbox == [[-117.0, 42.0, -111.0, 49.0]]
         assert result.extent.temporal.interval == [["2020-01-01T00:00:00Z", None]]
@@ -66,13 +66,13 @@ class TestCollectionDALGetCollection:
     ) -> None:
         """Organization access config survives round-trip."""
         collection_dal.put_collection(sample_collection_config)
-        result = collection_dal.get_collection("caves")
+        result = collection_dal.get_collection("test-collection")
 
-        assert "GemStateGrotto" in result.organizations
-        org = result.organizations["GemStateGrotto"]
-        assert org.cognito_group == "org:GemStateGrotto"
-        assert org.access_groups["members"] == "GemStateGrotto:members"
-        assert org.access_groups["restricted"] == "GemStateGrotto:restricted"
+        assert "TestOrgA" in result.organizations
+        org = result.organizations["TestOrgA"]
+        assert org.cognito_group == "org:TestOrgA"
+        assert org.access_groups["members"] == "TestOrgA:members"
+        assert org.access_groups["restricted"] == "TestOrgA:restricted"
 
     def test_get_preserves_property_schema_details(
         self,
@@ -81,7 +81,7 @@ class TestCollectionDALGetCollection:
     ) -> None:
         """Property schema details (enum, format, min) survive round-trip."""
         collection_dal.put_collection(sample_collection_config)
-        result = collection_dal.get_collection("caves")
+        result = collection_dal.get_collection("test-collection")
 
         depth = result.properties_schema["depth_m"]
         assert depth.type == "number"
@@ -126,7 +126,7 @@ class TestCollectionDALListCollections:
         result = collection_dal.list_collections()
 
         assert len(result) == 1
-        assert result[0].title == "Caves"
+        assert result[0].title == "Features"
         assert "name" in result[0].properties_schema
 
 
@@ -152,14 +152,14 @@ class TestCollectionDALPutCollection:
         collection_dal.put_collection(sample_collection_config)
 
         updated = CollectionConfig(
-            collection_id="caves",
-            title="Updated Caves",
+            collection_id="test-collection",
+            title="Updated Collection",
             description="Updated description",
         )
         collection_dal.put_collection(updated)
 
-        result = collection_dal.get_collection("caves")
-        assert result.title == "Updated Caves"
+        result = collection_dal.get_collection("test-collection")
+        assert result.title == "Updated Collection"
         assert result.description == "Updated description"
         # Schema should be empty since we replaced entirely
         assert result.properties_schema == {}
@@ -186,10 +186,10 @@ class TestCollectionDALDeleteCollection:
     ) -> None:
         """Deleting removes the collection from the config table."""
         collection_dal.put_collection(sample_collection_config)
-        collection_dal.delete_collection("caves")
+        collection_dal.delete_collection("test-collection")
 
         with pytest.raises(CollectionNotFoundError):
-            collection_dal.get_collection("caves")
+            collection_dal.get_collection("test-collection")
 
     def test_delete_nonexistent_collection(self, collection_dal: CollectionDAL) -> None:
         """Deleting a non-existent collection raises CollectionNotFoundError."""
@@ -214,7 +214,7 @@ class TestCollectionConfigModel:
 
     def test_make_pk(self) -> None:
         """Partition key follows expected format."""
-        assert CollectionConfig.make_pk("caves") == "COLLECTION#caves"
+        assert CollectionConfig.make_pk("test-collection") == "COLLECTION#test-collection"
 
     def test_make_sk(self) -> None:
         """Sort key is always CONFIG."""
@@ -224,8 +224,8 @@ class TestCollectionConfigModel:
         """OGC API metadata includes required fields and links."""
         meta = sample_collection_config.to_oapif_metadata(base_url="https://api.example.com")
 
-        assert meta["id"] == "caves"
-        assert meta["title"] == "Caves"
+        assert meta["id"] == "test-collection"
+        assert meta["title"] == "Features"
         assert meta["itemType"] == "feature"
         assert "extent" in meta
 

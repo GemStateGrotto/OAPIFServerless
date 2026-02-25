@@ -3,11 +3,11 @@
 #
 # Creates:
 #   - Cognito groups:  org:TestOrgB, TestOrgB:members, TestOrgB:restricted
-#   - Cognito users:   test-editor@oapif.test  (org:GemStateGrotto + editor + GemStateGrotto:members)
-#                       test-admin@oapif.test   (org:GemStateGrotto + admin  + GemStateGrotto:members + GemStateGrotto:restricted)
-#                       test-viewer@oapif.test  (org:GemStateGrotto + viewer)
+#   - Cognito users:   test-editor@oapif.test  (org:TestOrgA + editor + TestOrgA:members)
+#                       test-admin@oapif.test   (org:TestOrgA + admin  + TestOrgA:members + TestOrgA:restricted)
+#                       test-viewer@oapif.test  (org:TestOrgA + viewer)
 #                       test-other-org@oapif.test (org:TestOrgB + editor + TestOrgB:members)
-#   - DynamoDB config: "acceptance-caves" test collection in the config table
+#   - DynamoDB config: "acceptance-test" test collection in the config table
 #
 # All values are derived from CloudFormation stack outputs — no manual env
 # var configuration beyond OAPIF_ENVIRONMENT (default: dev) and standard
@@ -69,7 +69,7 @@ if [[ "${1:-}" == "--status" ]]; then
     echo ""
     info "Test collection in config table:"
     aws dynamodb get-item --table-name "$CONFIG_TABLE" \
-        --key '{"PK": {"S": "COLLECTION#acceptance-caves"}, "SK": {"S": "CONFIG"}}' \
+        --key '{"PK": {"S": "COLLECTION#acceptance-test"}, "SK": {"S": "CONFIG"}}' \
         --query "Item.collection_id.S" --output text 2>/dev/null || echo "(not found)"
 
     exit 0
@@ -136,8 +136,8 @@ create_group "org:TestOrgB"          "Test organization B (acceptance tests)"
 create_group "TestOrgB:members"      "TestOrgB members visibility (acceptance tests)"
 create_group "TestOrgB:restricted"   "TestOrgB restricted visibility (acceptance tests)"
 
-# Existing groups (org:GemStateGrotto, GemStateGrotto:members,
-# GemStateGrotto:restricted, admin, editor, viewer) are created by the
+# Existing groups (org:TestOrgA, TestOrgA:members,
+# TestOrgA:restricted, admin, editor, viewer) are created by the
 # auth stack CDK deploy — we don't recreate them here.
 
 # ── Create users ─────────────────────────────────────────────────────
@@ -146,13 +146,13 @@ echo ""
 info "Creating Cognito test users..."
 
 create_user "test-editor@oapif.test" "test-editor@oapif.test" \
-    "org:GemStateGrotto" "editor" "GemStateGrotto:members"
+    "org:TestOrgA" "editor" "TestOrgA:members"
 
 create_user "test-admin@oapif.test" "test-admin@oapif.test" \
-    "org:GemStateGrotto" "admin" "GemStateGrotto:members" "GemStateGrotto:restricted"
+    "org:TestOrgA" "admin" "TestOrgA:members" "TestOrgA:restricted"
 
 create_user "test-viewer@oapif.test" "test-viewer@oapif.test" \
-    "org:GemStateGrotto" "viewer"
+    "org:TestOrgA" "viewer"
 
 create_user "test-other-org@oapif.test" "test-other-org@oapif.test" \
     "org:TestOrgB" "editor" "TestOrgB:members"
@@ -163,17 +163,17 @@ echo ""
 info "Seeding acceptance test collection..."
 
 EXISTING=$(aws dynamodb get-item --table-name "$CONFIG_TABLE" \
-    --key '{"PK": {"S": "COLLECTION#acceptance-caves"}, "SK": {"S": "CONFIG"}}' \
+    --key '{"PK": {"S": "COLLECTION#acceptance-test"}, "SK": {"S": "CONFIG"}}' \
     --query "Item.collection_id.S" --output text 2>/dev/null || echo "None")
 
-if [[ "$EXISTING" == "acceptance-caves" ]]; then
-    skip "Collection acceptance-caves"
+if [[ "$EXISTING" == "acceptance-test" ]]; then
+    skip "Collection acceptance-test"
 else
     aws dynamodb put-item --table-name "$CONFIG_TABLE" --item '{
-        "PK":                   {"S": "COLLECTION#acceptance-caves"},
+        "PK":                   {"S": "COLLECTION#acceptance-test"},
         "SK":                   {"S": "CONFIG"},
-        "collection_id":        {"S": "acceptance-caves"},
-        "title":                {"S": "Acceptance Test Caves"},
+        "collection_id":        {"S": "acceptance-test"},
+        "title":                {"S": "Acceptance Test Collection"},
         "description":          {"S": "Collection used by the acceptance test suite"},
         "item_type":            {"S": "feature"},
         "geometry_type":        {"S": "Point"},
@@ -182,17 +182,17 @@ else
         "visibility_values":    {"L": [{"S": "public"}, {"S": "members"}, {"S": "restricted"}]},
         "required_properties":  {"L": [{"S": "name"}]},
         "properties_schema": {"M": {
-            "name":        {"M": {"type": {"S": "string"}, "description": {"S": "Cave name"}}},
+            "name":        {"M": {"type": {"S": "string"}, "description": {"S": "Feature name"}}},
             "depth_m":     {"M": {"type": {"S": "number"}, "description": {"S": "Depth in meters"}, "minimum": {"N": "0"}}},
             "survey_date": {"M": {"type": {"S": "string"}, "description": {"S": "Date of survey"}, "format": {"S": "date"}}},
-            "status":      {"M": {"type": {"S": "string"}, "description": {"S": "Cave status"}, "enum": {"L": [{"S": "active"}, {"S": "closed"}, {"S": "unknown"}]}}}
+            "status":      {"M": {"type": {"S": "string"}, "description": {"S": "Feature status"}, "enum": {"L": [{"S": "active"}, {"S": "closed"}, {"S": "unknown"}]}}}
         }},
         "organizations": {"M": {
-            "GemStateGrotto": {"M": {
-                "cognito_group": {"S": "org:GemStateGrotto"},
+            "TestOrgA": {"M": {
+                "cognito_group": {"S": "org:TestOrgA"},
                 "access_groups": {"M": {
-                    "members":    {"S": "GemStateGrotto:members"},
-                    "restricted": {"S": "GemStateGrotto:restricted"}
+                    "members":    {"S": "TestOrgA:members"},
+                    "restricted": {"S": "TestOrgA:restricted"}
                 }}
             }},
             "TestOrgB": {"M": {
@@ -214,7 +214,7 @@ else
         }},
         "links": {"L": []}
     }'
-    ok "Created collection acceptance-caves"
+    ok "Created collection acceptance-test"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────

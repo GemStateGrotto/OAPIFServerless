@@ -31,7 +31,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 TEST_PASSWORD = "Accept@nceTest2026!"
-COLLECTION_ID = "acceptance-caves"
+COLLECTION_ID = "acceptance-test"
 
 # ---------------------------------------------------------------------------
 # Helpers — AWS session & stack output resolution
@@ -102,9 +102,9 @@ def user_pool_id(stack_prefix: str, environment: str) -> str:
 
 @pytest.fixture(scope="session")
 def cognito_client_id(stack_prefix: str, environment: str) -> str:
-    """QGIS (public) Cognito app client ID used for auth flows."""
+    """Public Cognito app client ID used for auth flows."""
     auth_stack = f"{stack_prefix}-{environment}-auth"
-    return _get_stack_output(auth_stack, "QgisClientId")
+    return _get_stack_output(auth_stack, "AppClientId")
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ def other_org_token(user_pool_id: str, cognito_client_id: str) -> str:
 
 @pytest.fixture(scope="session")
 def editor_client(base_url: str, editor_token: str) -> Generator[httpx.Client]:
-    """Authenticated httpx client for test-editor (editor role, GemStateGrotto, members)."""
+    """Authenticated httpx client for test-editor (editor role, TestOrgA, members)."""
     client = _make_client(base_url, editor_token)
     yield client
     client.close()
@@ -193,7 +193,7 @@ def editor_client(base_url: str, editor_token: str) -> Generator[httpx.Client]:
 
 @pytest.fixture(scope="session")
 def admin_client(base_url: str, admin_token: str) -> Generator[httpx.Client]:
-    """Authenticated httpx client for test-admin (admin role, GemStateGrotto, members+restricted)."""
+    """Authenticated httpx client for test-admin (admin role, TestOrgA, members+restricted)."""
     client = _make_client(base_url, admin_token)
     yield client
     client.close()
@@ -201,7 +201,7 @@ def admin_client(base_url: str, admin_token: str) -> Generator[httpx.Client]:
 
 @pytest.fixture(scope="session")
 def viewer_client(base_url: str, viewer_token: str) -> Generator[httpx.Client]:
-    """Authenticated httpx client for test-viewer (viewer role, GemStateGrotto, no visibility groups)."""
+    """Authenticated httpx client for test-viewer (viewer role, TestOrgA, no visibility groups)."""
     client = _make_client(base_url, viewer_token)
     yield client
     client.close()
@@ -231,7 +231,7 @@ def anon_client(base_url: str) -> Generator[httpx.Client]:
 def make_test_feature(
     test_run_id: str,
     *,
-    name: str = "Test Cave",
+    name: str = "Test Feature",
     visibility: str | None = None,
     lon: float = -114.75,
     lat: float = 44.05,

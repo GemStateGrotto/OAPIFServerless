@@ -91,7 +91,7 @@ def _auth_claims(
 
 
 def _valid_feature_body(
-    name: str = "Test Cave",
+    name: str = "Test Feature",
     lon: float = -114.0,
     lat: float = 43.0,
     visibility: str = "public",
@@ -213,14 +213,14 @@ def seeded_collection(
 ) -> CollectionConfig:
     config = CollectionConfig(
         collection_id=collection_id,
-        title="CRUD Caves",
+        title="CRUD Collection",
         description="Integration test CRUD data",
         extent=CollectionExtent(
             spatial=SpatialExtent(bbox=[[-117.0, 42.0, -111.0, 49.0]]),
             temporal=TemporalExtent(interval=[["2024-01-01T00:00:00Z", None]]),
         ),
         properties_schema={
-            "name": PropertySchema(type="string", description="Cave name"),
+            "name": PropertySchema(type="string", description="Feature name"),
             "depth_m": PropertySchema(type="number", description="Depth in meters"),
         },
         required_properties=["name"],
@@ -282,13 +282,13 @@ class TestCreateFeature:
         event = _make_event(
             method="POST",
             path=f"/collections/{seeded_collection.collection_id}/items",
-            body=_valid_feature_body(name="My Cave"),
+            body=_valid_feature_body(name="My Feature"),
             claims=_auth_claims(org_id),
         )
         resp = handler(event, None)
         body = json.loads(resp["body"])
         assert body["type"] == "Feature"
-        assert body["properties"]["name"] == "My Cave"
+        assert body["properties"]["name"] == "My Feature"
         assert body["properties"]["organization"] == org_id
         assert body["properties"]["visibility"] == "public"
         assert "id" in body
@@ -298,7 +298,7 @@ class TestCreateFeature:
         create_event = _make_event(
             method="POST",
             path=f"/collections/{seeded_collection.collection_id}/items",
-            body=_valid_feature_body(name="Readable Cave"),
+            body=_valid_feature_body(name="Readable Feature"),
             claims=_auth_claims(org_id),
         )
         create_resp = handler(create_event, None)
@@ -313,7 +313,7 @@ class TestCreateFeature:
         assert get_resp["statusCode"] == 200
         got = json.loads(get_resp["body"])
         assert got["id"] == created["id"]
-        assert got["properties"]["name"] == "Readable Cave"
+        assert got["properties"]["name"] == "Readable Feature"
 
     def test_create_requires_authentication(self, seeded_collection: CollectionConfig) -> None:
         """Unauthenticated POST returns 401."""
@@ -815,7 +815,7 @@ class TestFullCRUDLifecycle:
             _make_event(
                 method="POST",
                 path=f"/collections/{cid}/items",
-                body=_valid_feature_body(name="Lifecycle Cave", depth_m=25.0),
+                body=_valid_feature_body(name="Lifecycle Feature", depth_m=25.0),
                 claims=claims,
             ),
             None,
@@ -836,7 +836,7 @@ class TestFullCRUDLifecycle:
         )
         assert get_resp["statusCode"] == 200
         got = json.loads(get_resp["body"])
-        assert got["properties"]["name"] == "Lifecycle Cave"
+        assert got["properties"]["name"] == "Lifecycle Feature"
         assert got["properties"]["depth_m"] == 25.0
 
         # 3. PATCH (update depth_m only)
@@ -853,7 +853,7 @@ class TestFullCRUDLifecycle:
         assert patch_resp["statusCode"] == 200
         patched = json.loads(patch_resp["body"])
         assert patched["properties"]["depth_m"] == 50.0
-        assert patched["properties"]["name"] == "Lifecycle Cave"  # Preserved
+        assert patched["properties"]["name"] == "Lifecycle Feature"  # Preserved
         etag2 = _extract_etag(patch_resp)
         assert etag2 != etag1
 
@@ -862,7 +862,7 @@ class TestFullCRUDLifecycle:
             _make_event(
                 method="PUT",
                 path=f"/collections/{cid}/items/{fid}",
-                body=_valid_feature_body(name="Replaced Cave", depth_m=75.0),
+                body=_valid_feature_body(name="Replaced Feature", depth_m=75.0),
                 headers={"if-match": f'"{etag2}"'},
                 claims=claims,
             ),
@@ -870,7 +870,7 @@ class TestFullCRUDLifecycle:
         )
         assert put_resp["statusCode"] == 200
         replaced = json.loads(put_resp["body"])
-        assert replaced["properties"]["name"] == "Replaced Cave"
+        assert replaced["properties"]["name"] == "Replaced Feature"
         etag3 = _extract_etag(put_resp)
         assert etag3 != etag2
 

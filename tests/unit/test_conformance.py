@@ -54,11 +54,11 @@ def _make_feature(**overrides: Any) -> Feature:
     """Create a Feature with sensible defaults, overridable via kwargs."""
     defaults: dict[str, Any] = {
         "id": "f-001",
-        "collection_id": "caves",
-        "organization": "GemStateGrotto",
+        "collection_id": "test-collection",
+        "organization": "TestOrgA",
         "visibility": "public",
         "geometry": {"type": "Point", "coordinates": [-114.74, 43.60]},
-        "properties": {"name": "Crystal Ice Cave", "depth_m": 12.5},
+        "properties": {"name": "Crystal Ice Feature", "depth_m": 12.5},
         "etag": "abc123",
         "created_at": "2025-01-01T00:00:00+00:00",
         "updated_at": "2025-01-01T00:00:00+00:00",
@@ -68,18 +68,18 @@ def _make_feature(**overrides: Any) -> Feature:
     return Feature(**defaults)
 
 
-def _caves_config() -> CollectionConfig:
-    """Standard caves collection config for conformance tests."""
+def _test_collection_config() -> CollectionConfig:
+    """Standard test-collection collection config for conformance tests."""
     return CollectionConfig(
-        collection_id="caves",
-        title="Caves",
-        description="Cave survey data for Idaho",
+        collection_id="test-collection",
+        title="Features",
+        description="Test feature data",
         extent=CollectionExtent(
             spatial=SpatialExtent(bbox=[[-117.0, 42.0, -111.0, 49.0]]),
             temporal=TemporalExtent(interval=[["2020-01-01T00:00:00Z", None]]),
         ),
         properties_schema={
-            "name": PropertySchema(type="string", description="Cave name"),
+            "name": PropertySchema(type="string", description="Feature name"),
             "depth_m": PropertySchema(type="number", description="Depth in meters", min_value=0.0),
             "status": PropertySchema(type="string", enum=["active", "closed", "unknown"]),
         },
@@ -87,9 +87,9 @@ def _caves_config() -> CollectionConfig:
         visibility_values=["public", "members", "restricted"],
         geometry_type="Point",
         organizations={
-            "GemStateGrotto": OrgAccessConfig(
-                cognito_group="org:GemStateGrotto",
-                access_groups={"members": "GemStateGrotto:members", "restricted": "GemStateGrotto:restricted"},
+            "TestOrgA": OrgAccessConfig(
+                cognito_group="org:TestOrgA",
+                access_groups={"members": "TestOrgA:members", "restricted": "TestOrgA:restricted"},
             ),
         },
     )
@@ -159,7 +159,7 @@ class TestGeoJSONFeatureConformance:
         """Organization must appear in GeoJSON properties."""
         geojson = _make_feature().to_geojson()
         assert "organization" in geojson["properties"]
-        assert geojson["properties"]["organization"] == "GemStateGrotto"
+        assert geojson["properties"]["organization"] == "TestOrgA"
 
     def test_properties_include_visibility(self) -> None:
         """Visibility must appear in GeoJSON properties."""
@@ -177,12 +177,12 @@ class TestOGCCollectionMetadataConformance:
     """Validate CollectionConfig.to_oapif_metadata() against OGC schema."""
 
     def test_collection_with_links(self) -> None:
-        config = _caves_config()
+        config = _test_collection_config()
         meta = config.to_oapif_metadata(base_url="https://api.example.com")
         _validate(meta, OGC_COLLECTION_SCHEMA)
 
     def test_collection_has_required_fields(self) -> None:
-        config = _caves_config()
+        config = _test_collection_config()
         meta = config.to_oapif_metadata(base_url="https://api.example.com")
         assert "id" in meta
         assert "links" in meta
@@ -190,19 +190,19 @@ class TestOGCCollectionMetadataConformance:
         assert len(meta["links"]) > 0
 
     def test_collection_links_have_self(self) -> None:
-        config = _caves_config()
+        config = _test_collection_config()
         meta = config.to_oapif_metadata(base_url="https://api.example.com")
         rels = [link["rel"] for link in meta["links"]]
         assert "self" in rels
 
     def test_collection_links_have_items(self) -> None:
-        config = _caves_config()
+        config = _test_collection_config()
         meta = config.to_oapif_metadata(base_url="https://api.example.com")
         rels = [link["rel"] for link in meta["links"]]
         assert "items" in rels
 
     def test_collection_extent_structure(self) -> None:
-        config = _caves_config()
+        config = _test_collection_config()
         meta = config.to_oapif_metadata(base_url="https://api.example.com")
         assert "extent" in meta
         assert "spatial" in meta["extent"]
@@ -218,7 +218,7 @@ class TestOGCCollectionMetadataConformance:
     def test_collections_list_structure(self) -> None:
         """Validate that a list of collections matches OGC schema."""
         configs = [
-            _caves_config(),
+            _test_collection_config(),
             CollectionConfig(collection_id="springs", title="Springs"),
         ]
         collections_response = {
@@ -238,14 +238,14 @@ class TestGeneratedSchemaMetaValidation:
 
     def test_returnable_schema_is_valid_json_schema(self) -> None:
         """Returnable schema must be a valid JSON Schema document."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
         # Validate the schema itself is valid JSON Schema
         jsonschema.Draft202012Validator.check_schema(schema)
 
     def test_receivable_schema_is_valid_json_schema(self) -> None:
         """Receivable schema must be a valid JSON Schema document."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config, receivable=True)
         jsonschema.Draft202012Validator.check_schema(schema)
 
@@ -282,23 +282,23 @@ class TestFeatureAgainstGeneratedSchema:
 
     def test_valid_feature_passes_returnable_schema(self) -> None:
         """A well-formed feature validates against the returnable schema."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
-        feature = _make_feature(properties={"name": "Crystal Ice Cave", "depth_m": 12.5, "status": "active"})
+        feature = _make_feature(properties={"name": "Crystal Ice Feature", "depth_m": 12.5, "status": "active"})
         geojson = feature.to_geojson()
         _validate(geojson, schema)
 
     def test_valid_feature_missing_optional_property(self) -> None:
         """A feature missing optional properties still validates."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
-        feature = _make_feature(properties={"name": "Minimal Cave"})
+        feature = _make_feature(properties={"name": "Minimal Feature"})
         geojson = feature.to_geojson()
         _validate(geojson, schema)
 
     def test_feature_missing_required_property_fails(self) -> None:
         """A feature missing a required property fails validation."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
         # Missing "name" which is required
         feature = _make_feature(properties={"depth_m": 10.0})
@@ -308,20 +308,20 @@ class TestFeatureAgainstGeneratedSchema:
 
     def test_feature_invalid_enum_fails(self) -> None:
         """A feature with an invalid enum value fails validation."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
-        feature = _make_feature(properties={"name": "Bad Cave", "status": "nonexistent_status"})
+        feature = _make_feature(properties={"name": "Bad Feature", "status": "nonexistent_status"})
         geojson = feature.to_geojson()
         with pytest.raises(jsonschema.ValidationError):
             _validate(geojson, schema)
 
     def test_feature_invalid_visibility_fails(self) -> None:
         """A feature with an invalid visibility value fails validation."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config)
         feature = _make_feature(
             visibility="top-secret",
-            properties={"name": "Secret Cave"},
+            properties={"name": "Secret Feature"},
         )
         geojson = feature.to_geojson()
         with pytest.raises(jsonschema.ValidationError):
@@ -329,18 +329,18 @@ class TestFeatureAgainstGeneratedSchema:
 
     def test_receivable_feature_valid(self) -> None:
         """A receivable feature (no id, no organization) validates."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config, receivable=True)
         receivable = {
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [-114.74, 43.60]},
-            "properties": {"name": "New Cave", "visibility": "public"},
+            "properties": {"name": "New Feature", "visibility": "public"},
         }
         _validate(receivable, schema)
 
     def test_receivable_feature_missing_required_fails(self) -> None:
         """A receivable feature missing required properties fails."""
-        config = _caves_config()
+        config = _test_collection_config()
         schema = generate_schema(config, receivable=True)
         receivable = {
             "type": "Feature",
@@ -394,13 +394,13 @@ class TestOGCResponseStructures:
 
     def test_items_response_structure(self) -> None:
         """Feature collection response with paging metadata validates."""
-        features = [_make_feature(id=f"f-{i}", properties={"name": f"Cave {i}"}).to_geojson() for i in range(3)]
+        features = [_make_feature(id=f"f-{i}", properties={"name": f"Feature {i}"}).to_geojson() for i in range(3)]
         items_response = {
             "type": "FeatureCollection",
             "features": features,
             "links": [
-                {"href": "https://api.example.com/collections/caves/items", "rel": "self"},
-                {"href": "https://api.example.com/collections/caves/items?cursor=abc", "rel": "next"},
+                {"href": "https://api.example.com/collections/test-collection/items", "rel": "self"},
+                {"href": "https://api.example.com/collections/test-collection/items?cursor=abc", "rel": "next"},
             ],
             "timeStamp": "2025-01-01T00:00:00Z",
             "numberMatched": 100,
@@ -419,7 +419,7 @@ class TestOGCResponseStructures:
             "type": "FeatureCollection",
             "features": [],
             "links": [
-                {"href": "https://api.example.com/collections/caves/items", "rel": "self"},
+                {"href": "https://api.example.com/collections/test-collection/items", "rel": "self"},
             ],
             "timeStamp": "2025-01-01T00:00:00Z",
             "numberMatched": 0,

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 ORG_GROUP_PREFIX = "org:"
-"""Prefix for organization groups, e.g. ``org:GemStateGrotto``."""
+"""Prefix for organization groups, e.g. ``org:TestOrgA``."""
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ def _extract_groups_from_claims(claims: dict[str, Any]) -> frozenset[str]:
     Cognito stores groups in the ``cognito:groups`` claim.  When passed
     through API Gateway HTTP API v2 JWT authorizer, array claims are
     serialized as a bracket-wrapped, space-delimited string:
-    ``"[org:GemStateGrotto editor GemStateGrotto:members]"``.
+    ``"[org:TestOrgA editor TestOrgA:members]"``.
 
     This function handles:
     - Native list (direct Lambda invocation / unit tests)
@@ -179,7 +179,7 @@ def _extract_groups_from_claims(claims: dict[str, Any]) -> frozenset[str]:
                 pass
 
             # API Gateway bracket-wrapped, space-delimited format:
-            # "[org:GemStateGrotto editor GemStateGrotto:members]"
+            # "[org:TestOrgA editor TestOrgA:members]"
             inner = stripped.strip("[]").strip()
             if inner:
                 return frozenset(inner.split())
@@ -209,7 +209,7 @@ def _extract_roles(groups: frozenset[str]) -> frozenset[str]:
     """Extract role names from Cognito groups.
 
     Matches exact role names (``admin``, ``editor``, ``viewer``) as well
-    as collection-scoped variants like ``caves:editor``.
+    as collection-scoped variants like ``collection-a:editor``.
     """
     roles: set[str] = set()
     for group in groups:

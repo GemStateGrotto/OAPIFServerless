@@ -128,7 +128,7 @@ class AuthStack(cdk.Stack):
         self.m2m_client.node.add_dependency(self.resource_server)
 
         # --- Cognito Groups ---
-        # Organization groups (one per org, e.g. "org:GemStateGrotto")
+        # Organization groups (one per org, e.g. "org:TestOrgA")
         # Visibility-level groups within each org
         # Role groups (editor, admin, viewer)
         #
@@ -151,18 +151,18 @@ class AuthStack(cdk.Stack):
         if config.environment == "dev":
             cognito.CfnUserPoolGroup(
                 self,
-                "OrgGroup-GemStateGrotto",
-                group_name="org:GemStateGrotto",
+                "OrgGroup-TestOrgA",
+                group_name="org:TestOrgA",
                 user_pool_id=self.user_pool.user_pool_id,
-                description="Organization: GemStateGrotto",
+                description="Organization: TestOrgA",
             )
             for level in ["members", "restricted"]:
                 cognito.CfnUserPoolGroup(
                     self,
-                    f"VisibilityGroup-GemStateGrotto-{level}",
-                    group_name=f"GemStateGrotto:{level}",
+                    f"VisibilityGroup-TestOrgA-{level}",
+                    group_name=f"TestOrgA:{level}",
                     user_pool_id=self.user_pool.user_pool_id,
-                    description=f"GemStateGrotto {level} visibility access",
+                    description=f"TestOrgA {level} visibility access",
                 )
 
         # --- Outputs ---
