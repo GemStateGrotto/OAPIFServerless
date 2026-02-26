@@ -186,48 +186,48 @@ with standard pytest in the DevContainer or in QGIS Docker with `qgis_unit` mark
 
 ### Plugin Structure
 
-- [ ] Create plugin directory layout:
-  - [ ] `plugin/metadata.txt` — QGIS plugin metadata (name, version, `qgisMinimumVersion`, author, description, repository URL, tracker URL)
-  - [ ] `plugin/__init__.py` — plugin entry point (`classFactory`)
-  - [ ] `plugin/plugin.py` — main `QgsPluginInterface` implementation (stub for now)
-  - [ ] `plugin/resources/` — icons and UI resources
+- [x] Create plugin directory layout:
+  - [x] `plugin/metadata.txt` — QGIS plugin metadata (name, version, `qgisMinimumVersion`, author, description, repository URL, tracker URL)
+  - [x] `plugin/__init__.py` — plugin entry point (`classFactory`)
+  - [x] `plugin/plugin.py` — main `QgsPluginInterface` implementation (stub for now)
+  - [x] `plugin/resources/` — icons and UI resources
 
 ### HTTP Client
 
-- [ ] Implement OAPIF HTTP client wrapper (pure Python, `urllib` or `httpx`)
-  - [ ] `get_landing_page(base_url)` → landing page JSON with links
-  - [ ] `get_collections(base_url)` → list of collection metadata
-  - [ ] `get_collection(base_url, collection_id)` → single collection
-  - [ ] `get_features(base_url, collection_id, bbox?, limit?)` → feature collection
-  - [ ] `get_feature(base_url, collection_id, feature_id)` → single feature + ETag
-  - [ ] `create_feature(base_url, collection_id, feature, token)` → feature ID + ETag
-  - [ ] `update_feature(base_url, collection_id, feature_id, feature, etag, token)` → new ETag
-  - [ ] `delete_feature(base_url, collection_id, feature_id, etag, token)` → success
-  - [ ] Pagination: follow `next` links automatically, collect all pages
-  - [ ] `Content-Type` negotiation (request `application/geo+json`)
+- [x] Implement OAPIF HTTP client wrapper (pure Python, `urllib`)
+  - [x] `get_landing_page(base_url)` → landing page JSON with links
+  - [x] `get_collections(base_url)` → list of collection metadata
+  - [x] `get_collection(base_url, collection_id)` → single collection
+  - [x] `get_features(base_url, collection_id, bbox?, limit?)` → feature collection
+  - [x] `get_feature(base_url, collection_id, feature_id)` → single feature + ETag
+  - [x] `create_feature(base_url, collection_id, feature, token)` → feature ID + ETag
+  - [x] `update_feature(base_url, collection_id, feature_id, feature, etag, token)` → new ETag
+  - [x] `delete_feature(base_url, collection_id, feature_id, etag, token)` → success
+  - [x] Pagination: follow `next` links automatically, collect all pages
+  - [x] `Content-Type` negotiation (request `application/geo+json`)
 
 ### OIDC / PKCE Token Management
 
-- [ ] Implement OIDC discovery: fetch `.well-known/openid-configuration` from Cognito
-- [ ] Implement PKCE authorization URL construction (`code_challenge`, `state`, `nonce`)
-- [ ] Implement localhost redirect listener (ephemeral port, capture authorization code)
-- [ ] Implement code-to-token exchange (POST to Cognito token endpoint)
-- [ ] Implement token parsing: extract `access_token`, `id_token`, `refresh_token`, expiry
-- [ ] Implement token refresh flow (use `refresh_token` before `access_token` expires)
-- [ ] Implement secure token storage (platform keyring or encrypted file)
+- [x] Implement OIDC discovery: fetch `.well-known/openid-configuration` from Cognito
+- [x] Implement PKCE authorization URL construction (`code_challenge`, `state`, `nonce`)
+- [x] Implement localhost redirect listener (ephemeral port, capture authorization code)
+- [x] Implement code-to-token exchange (POST to Cognito token endpoint)
+- [x] Implement token parsing: extract `access_token`, `id_token`, `refresh_token`, expiry
+- [x] Implement token refresh flow (use `refresh_token` before `access_token` expires)
+- [x] Implement secure token storage (platform keyring or encrypted file)
 
 ### Configuration
 
-- [ ] Implement server connection config (base URL, Cognito domain, client ID)
-- [ ] Implement config persistence (QSettings-compatible, JSON file fallback)
-- [ ] Implement collection selection state management
+- [x] Implement server connection config (base URL, Cognito domain, client ID)
+- [x] Implement config persistence (QSettings-compatible, JSON file fallback)
+- [x] Implement collection selection state management
 
 ### Tests (Tier 1: Unit)
 
-- [ ] HTTP client: mock responses for all endpoints, validate URL construction, header injection, pagination link following
-- [ ] OIDC/PKCE: mock Cognito discovery and token exchange, validate PKCE challenge/verifier generation
-- [ ] Token lifecycle: mock token expiry detection and refresh flow, validate error handling on refresh failure
-- [ ] Config: serialize/deserialize settings, validate defaults, test edge cases (missing fields, invalid URLs)
+- [x] HTTP client: mock responses for all endpoints, validate URL construction, header injection, pagination link following
+- [x] OIDC/PKCE: mock Cognito discovery and token exchange, validate PKCE challenge/verifier generation
+- [x] Token lifecycle: mock token expiry detection and refresh flow, validate error handling on refresh failure
+- [x] Config: serialize/deserialize settings, validate defaults, test edge cases (missing fields, invalid URLs)
 
 ## Phase P2: Auth + Data Provider — Headless PyQGIS
 

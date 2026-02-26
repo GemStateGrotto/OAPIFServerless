@@ -1,0 +1,17 @@
+[general]
+name=OAPIFServerless
+qgisMinimumVersion=3.28
+description=Connect QGIS to an OGC API - Features backend on AWS (DynamoDB, Cognito auth)
+version=0.1.0
+author=GemStateGrotto
+email=oapif@gemstategrotto.org
+about=Provides authentication (OIDC/PKCE via AWS Cognito), layer loading, and feature editing against an OAPIFServerless deployment. Uses the built-in QGIS OAPIF data provider with custom auth injection.
+tracker=https://github.com/GemStateGrotto/OAPIFServerless/issues
+repository=https://github.com/GemStateGrotto/OAPIFServerless
+tags=ogc,oapif,wfs3,features,aws,dynamodb,cognito
+homepage=https://github.com/GemStateGrotto/OAPIFServerless
+category=Web
+icon=resources/icon.png
+experimental=True
+deprecated=False
+hasProcessingProvider=False

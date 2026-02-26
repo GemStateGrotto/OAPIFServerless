@@ -144,7 +144,7 @@ configurable via `OAPIF_CHECK_MAX_AGE`):
 
 ### Backend Quality Gate
 
-Covers `src/`, `deploy/`, `tests/`, `scripts/` — does **not** touch `plugin/`:
+Only required when backend files (`src/`, `deploy/`, `tests/`, `scripts/`) have changed. Does **not** touch `plugin/`:
 
 ```bash
 ./scripts/check-backend.sh             # ALL backend checks — required before backend commits
@@ -165,8 +165,9 @@ Available subsets (for iterating during development):
 
 ### Plugin-Only Quality Gate
 
-Runs ruff and mypy inside the QGIS Docker container (Python 3.12,
-matching the plugin target). Does **not** touch backend code:
+Only required when plugin files (`plugin/`) have changed. Runs ruff and
+mypy inside the QGIS Docker container (Python 3.12, matching the plugin
+target). Does **not** touch backend code:
 
 ```bash
 ./scripts/check-plugin.sh              # ALL plugin checks — required before plugin-only commits
