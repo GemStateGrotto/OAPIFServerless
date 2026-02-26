@@ -21,6 +21,75 @@ backend (Lambda endpoints, CDK) that supports project file sync.
 | OAPIF provider | **Built-in + custom auth** | Leverages QGIS-maintained OAPIF provider; only auth injection is custom |
 | Test environment | **Docker** (QGIS image + Xvfb) | Full isolation; reproducible; CI-friendly; no DevContainer bloat |
 | Display backend | **Xvfb** for GUI widget tests; `offscreen` for headless | Xvfb gives truer rendering for widget tests; offscreen is lighter for headless tests |
+| Interactive display | **X11 forwarding** from WSL2 → DevContainer → DinD | Live QGIS GUI for plugin development; uses host X server via socket mount |
+| Container execution | **`docker run -d` + `docker exec`** via DinD | Persistent container for fast iteration; mirrors acceptance test setup/teardown pattern |
+
+### Why `docker exec` (not docker-compose service)
+
+The DevContainer uses `docker-in-docker` (DinD), meaning the `docker` CLI inside
+the DevContainer talks to its **own Docker daemon**, not the host daemon that runs
+the `.devcontainer/docker-compose.yml` services. A `qgis-test` service added as a
+compose sibling would run on the host daemon — unreachable via `docker exec` from
+inside the DevContainer.
+
+Instead, the QGIS container is managed entirely through the DinD daemon:
+
+1. **`scripts/qgis-test-setup.sh`** — pulls the image, starts a named container
+   (`oapif-qgis-test`) in detached mode with Xvfb, volume mounts, and env vars.
+   Resolves CFN stack outputs (base URL, User Pool domain URL, Client ID) and
+   authenticates test users via `admin-initiate-auth` in the DevContainer. Passes
+   the API base URL, Cognito token endpoint, client ID, and **refresh tokens**
+   (valid 365 days) into the container — no further AWS access required.
+2. **`scripts/qgis-test.sh`** — uses `docker exec` to run pytest in the already-
+   running container. The conftest exchanges refresh tokens for fresh ID tokens
+   via a simple HTTPS POST to the Cognito `/oauth2/token` endpoint (public,
+   no AWS SDK needed). Fast iteration: no startup overhead per test run.
+3. **`scripts/qgis-test-teardown.sh`** — stops and removes the container.
+
+This mirrors the acceptance test pattern (`acceptance-setup.sh` → `pytest` →
+`acceptance-teardown.sh`). If tests behave unexpectedly, tear down and rebuild
+the container to eliminate stale state.
+
+### No AWS credentials inside the QGIS container
+
+The QGIS container has **no AWS SDK, credentials, or direct AWS access**. All AWS
+interaction happens once, in the DevContainer, during `qgis-test-setup.sh`:
+
+| What | Where | When |
+|------|-------|------|
+| Resolve CFN outputs (base URL, domain URL, client ID) | DevContainer (`qgis-test-setup.sh`) | Container startup |
+| Authenticate test users → refresh tokens | DevContainer (`qgis-test-setup.sh`) | Container startup |
+| Pass values to QGIS container | `docker run -e` | Container startup |
+| Exchange refresh token → fresh ID token | QGIS container conftest (`urllib` POST to Cognito `/oauth2/token`) | Each test session |
+
+Refresh tokens are valid for 365 days (configured in the auth stack), so the
+container can run for months without re-running setup. Fresh ID tokens (~1 hour)
+are obtained at the start of each pytest session via the **public** Cognito token
+endpoint — a plain HTTPS POST, no AWS SDK or credentials needed.
+
+This keeps the QGIS image lightweight (no boto3 installation) and avoids
+forwarding sensitive AWS credentials into a second container.
+
+### Interactive QGIS sessions
+
+For visual plugin development, QGIS can be launched with a full GUI from the
+persistent container. The X11 display chain is:
+
+```
+WSL2 X server  →  DevContainer (/tmp/.X11-unix, DISPLAY=:0)  →  DinD QGIS container
+```
+
+The setup script bind-mounts `/tmp/.X11-unix` into the container at creation time.
+The interactive script then launches QGIS with the host display:
+
+```bash
+./scripts/qgis-interactive.sh              # launch QGIS GUI with plugin loaded
+```
+
+This runs `docker exec` with `DISPLAY=$DISPLAY` and `QT_QPA_PLATFORM=xcb`,
+overriding the container's default `offscreen` platform. The plugin source is
+already volume-mounted, so code changes are visible immediately after restarting
+QGIS — no container rebuild needed.
 
 ## Test Tiers
 
@@ -37,41 +106,78 @@ into tiers based on infrastructure requirements:
 Run tiers selectively:
 
 ```bash
-./scripts/qgis-test.sh                    # all tiers
-./scripts/qgis-test.sh unit               # unit only (no QGIS needed)
-./scripts/qgis-test.sh headless           # headless PyQGIS
-./scripts/qgis-test.sh widget             # GUI widget tests
-./scripts/qgis-test.sh headless widget    # combine tiers
+# First-time setup (or after teardown):
+./scripts/qgis-test-setup.sh               # pull image, start container, install deps
+
+# Run tests (repeatable, fast — container stays running):
+./scripts/qgis-test.sh                     # all tiers
+./scripts/qgis-test.sh unit                # unit only (no QGIS needed)
+./scripts/qgis-test.sh headless            # headless PyQGIS
+./scripts/qgis-test.sh widget              # GUI widget tests
+./scripts/qgis-test.sh headless widget     # combine tiers
+
+# Interactive QGIS GUI (plugin development — requires WSL2 / X11):
+./scripts/qgis-interactive.sh              # launch QGIS with plugin loaded
+
+# When done, or to reset stale state:
+./scripts/qgis-test-teardown.sh            # stop and remove container
 ```
 
 ---
 
 ## Phase P0: Test Infrastructure
 
-Docker Compose service, test runner, CI integration, and the bare plugin skeleton
-needed to validate that the test environment works.
+Container setup/teardown scripts, test runner, CI integration, and the bare plugin
+skeleton needed to validate that the test environment works.
 
-- [ ] Add `qgis-test` service to `.devcontainer/docker-compose.yml`
-  - [ ] Image: `qgis/qgis:ltr`
-  - [ ] Xvfb startup in entrypoint (`Xvfb :99 -screen 0 1024x768x24 &`)
-  - [ ] Volume mounts: `./plugin:/plugin` (source), `./tests:/tests` (shared fixtures)
-  - [ ] Environment: `QT_QPA_PLATFORM`, `DISPLAY=:99`, `OAPIF_ENVIRONMENT`
-  - [ ] AWS credentials forwarded for live API tests
+- [ ] Create `scripts/qgis-test-setup.sh` (container setup)
+  - [ ] Pull `qgis/qgis:ltr` image via DinD daemon
+  - [ ] Resolve CFN stack outputs in the DevContainer:
+    - [ ] `OAPIF_BASE_URL` from API stack `ApiUrl` output
+    - [ ] `OAPIF_TOKEN_ENDPOINT` from auth stack `UserPoolDomainUrl` output + `/oauth2/token`
+    - [ ] `OAPIF_CLIENT_ID` from auth stack `AppClientId` output
+  - [ ] Authenticate test users via `admin-initiate-auth` in the DevContainer:
+    - [ ] `OAPIF_EDITOR_REFRESH_TOKEN` for `test-editor@oapif.test`
+    - [ ] `OAPIF_ADMIN_REFRESH_TOKEN` for `test-admin@oapif.test`
+    - [ ] `OAPIF_VIEWER_REFRESH_TOKEN` for `test-viewer@oapif.test`
+  - [ ] `docker run -d --name oapif-qgis-test` with:
+    - [ ] Xvfb startup in entrypoint (`Xvfb :99 -screen 0 1024x768x24 &`)
+    - [ ] Volume mounts: workspace `plugin/` and `tests/` into container
+    - [ ] Bind-mount `/tmp/.X11-unix` from DevContainer (for interactive QGIS sessions)
+    - [ ] Environment: `QT_QPA_PLATFORM=offscreen`, `DISPLAY=:99` (Xvfb default for tests), plus all `OAPIF_*` vars above
+    - [ ] No AWS credentials — all AWS interaction stays in the DevContainer
+  - [ ] Install test dependencies inside the container (`pip install pytest pytest-cov`)
+  - [ ] `--status` flag: show whether container is running and healthy
+  - [ ] Idempotent: skip if container already running, print status
 - [ ] Create `scripts/qgis-test.sh` test runner
+  - [ ] Verify `oapif-qgis-test` container is running (helpful error if not: "Run ./scripts/qgis-test-setup.sh first")
+  - [ ] `docker exec oapif-qgis-test python3 -m pytest ...` with tier markers
   - [ ] Accept tier arguments (`unit`, `headless`, `widget`, or omit for all)
-  - [ ] Pull/build QGIS Docker image
-  - [ ] Run pytest inside the container with appropriate markers
-  - [ ] Copy screenshot output to host-accessible directory
+  - [ ] Map screenshot output to host-accessible directory
   - [ ] Exit with pytest's exit code for CI integration
+- [ ] Create `scripts/qgis-test-teardown.sh` (container cleanup)
+  - [ ] `docker stop oapif-qgis-test && docker rm oapif-qgis-test`
+  - [ ] Idempotent: no error if container doesn't exist
+  - [ ] Optionally clean up `plugin/tests/output/`
 - [ ] Create `plugin/tests/conftest.py`
   - [ ] `QgsApplication` init/teardown fixture (session-scoped, GUI mode based on tier)
   - [ ] Plugin path injection (`sys.path` for plugin imports inside QGIS container)
-  - [ ] Base URL fixture (from CloudFormation outputs, shared with acceptance tests)
-  - [ ] Authenticated token fixture (Cognito `admin-initiate-auth` for headless tests)
+  - [ ] Base URL fixture (reads `OAPIF_BASE_URL` env var — set at container startup)
+  - [ ] Token refresh helper: POST `grant_type=refresh_token` to `OAPIF_TOKEN_ENDPOINT` with `OAPIF_CLIENT_ID` and persona refresh token via `urllib` (no AWS SDK)
+  - [ ] Session-scoped token fixtures that call the refresh helper to get fresh ID tokens from `OAPIF_EDITOR_REFRESH_TOKEN`, `OAPIF_ADMIN_REFRESH_TOKEN`, `OAPIF_VIEWER_REFRESH_TOKEN`
 - [ ] Create pytest marker definitions and config for plugin test tiers
 - [ ] Add `.gitignore` entries for `plugin/tests/output/`
 - [ ] Smoke test: start `QgsApplication`, assert `QgsProviderRegistry` has `OAPIF` provider, exit
-- [ ] Add GitHub Actions CI job for QGIS plugin tests (runs after acceptance-setup)
+- [ ] Create `scripts/qgis-interactive.sh` (interactive QGIS session)
+  - [ ] Verify `oapif-qgis-test` container is running
+  - [ ] Refresh an ID token from the editor refresh token (same `urllib` POST as conftest)
+  - [ ] `docker exec -e DISPLAY=$DISPLAY -e QT_QPA_PLATFORM=xcb` to launch QGIS with host X server
+  - [ ] Load plugin from `/plugin` volume mount via `--code /plugin` or QGIS startup config
+  - [ ] Pass auth token and base URL so plugin connects on launch
+- [ ] Add GitHub Actions CI job for QGIS plugin tests
+  - [ ] Run `qgis-test-setup.sh` (after `acceptance-setup.sh`)
+  - [ ] Run `qgis-test.sh` for all tiers
+  - [ ] Run `qgis-test-teardown.sh` in `always()` post-step
 
 ## Phase P1: Plugin Scaffolding + Pure Python Core
 

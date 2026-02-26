@@ -83,7 +83,7 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 - Unit tests for all business logic (authorization, schema validation, data access)
 - Integration tests against DynamoDB Local for data layer
 - Mock AWS services with `moto` where DynamoDB Local is not available
-- QGIS plugin tests run in a Docker container (`qgis/qgis:ltr`) with Xvfb — see `plugin/TODO.md` for test tiers
+- QGIS plugin tests run in a persistent Docker container (`qgis/qgis:ltr`) managed via DinD — setup/teardown scripts mirror the acceptance test pattern. See `plugin/TODO.md` for test tiers and execution methodology.
 - Plugin targets Python 3.12 (QGIS-bundled), not the backend's Python 3.14
 
 ### Acceptance Tests (Remote)

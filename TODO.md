@@ -34,7 +34,7 @@ testing methodology (pure Python → headless PyQGIS → GUI widget tests).
 
 Summary of plugin phases:
 
-- [ ] P0: Test infrastructure — QGIS Docker (LTR) service, test runner script, CI workflow
+- [ ] P0: Test infrastructure — QGIS Docker (LTR) container via DinD, setup/teardown scripts, `docker exec` test runner, CI workflow
 - [ ] P1: Plugin scaffolding + pure Python core — HTTP client, OIDC/PKCE token management, config
 - [ ] P2: Auth + data provider — QgsAuthMethodConfig, Bearer token injection, built-in OAPIF provider, layer loading, pagination, bbox
 - [ ] P3: Feature editing — create/update/delete via plugin, ETag concurrency, conflict resolution
