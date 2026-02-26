@@ -28,6 +28,7 @@ from oapif.handlers.routes import (
     set_collection_dal,
     set_feature_dal,
 )
+from oapif.models.collection import CollectionConfig
 from tests.schemas import (
     OGC_COLLECTIONS_SCHEMA,
     OGC_CONFORMANCE_SCHEMA,
@@ -312,8 +313,32 @@ class TestSingleCollection:
 class TestItems:
     """Tests for the feature collection items endpoint."""
 
-    def test_items_requires_organization(self, _setup_with_collection: None) -> None:
+    def test_items_defaults_to_sole_org(self, _setup_with_collection: None) -> None:
+        """Single-org collection defaults to that org when param is omitted."""
         event = _make_event(path="/collections/test-collection/items")
+        resp = handler(event, None)
+        assert resp["statusCode"] == 200
+        body = json.loads(resp["body"])
+        assert body["type"] == "FeatureCollection"
+
+    def test_items_requires_organization_when_multi_org(
+        self,
+        _setup_dals: None,
+        collection_dal: Any,
+    ) -> None:
+        """Multi-org collection requires organization query parameter."""
+        from oapif.models.collection import OrgAccessConfig
+
+        config = CollectionConfig(
+            collection_id="multi-org",
+            title="Multi-org collection",
+            organizations={
+                "OrgA": OrgAccessConfig(cognito_group="org:OrgA"),
+                "OrgB": OrgAccessConfig(cognito_group="org:OrgB"),
+            },
+        )
+        collection_dal.put_collection(config)
+        event = _make_event(path="/collections/multi-org/items")
         resp = handler(event, None)
         assert resp["statusCode"] == 400
         body = json.loads(resp["body"])
@@ -470,8 +495,34 @@ class TestItems:
 class TestSingleFeature:
     """Tests for the single feature endpoint."""
 
-    def test_feature_requires_organization(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/test-collection/items/some-id")
+    def test_feature_defaults_to_sole_org(self, _setup_with_features: None, dal: Any) -> None:
+        """Single-org collection defaults to that org for single feature too."""
+        result = dal.query_features("test-collection", "TestOrgA", limit=1)
+        feature = result.features[0]
+        event = _make_event(path=f"/collections/test-collection/items/{feature.id}")
+        resp = handler(event, None)
+        assert resp["statusCode"] == 200
+        body = json.loads(resp["body"])
+        assert body["id"] == feature.id
+
+    def test_feature_requires_organization_when_multi_org(
+        self,
+        _setup_dals: None,
+        collection_dal: Any,
+    ) -> None:
+        """Multi-org collection requires organization query parameter."""
+        from oapif.models.collection import OrgAccessConfig
+
+        config = CollectionConfig(
+            collection_id="multi-org",
+            title="Multi-org collection",
+            organizations={
+                "OrgA": OrgAccessConfig(cognito_group="org:OrgA"),
+                "OrgB": OrgAccessConfig(cognito_group="org:OrgB"),
+            },
+        )
+        collection_dal.put_collection(config)
+        event = _make_event(path="/collections/multi-org/items/some-id")
         resp = handler(event, None)
         assert resp["statusCode"] == 400
 
@@ -657,9 +708,64 @@ class TestErrorResponses:
         assert body["status"] == 404
         assert "title" in body
 
-    def test_400_is_problem_json(self, _setup_with_collection: None) -> None:
-        event = _make_event(path="/collections/test-collection/items")
+    def test_400_is_problem_json(
+        self,
+        _setup_dals: None,
+        collection_dal: Any,
+    ) -> None:
+        from oapif.models.collection import OrgAccessConfig
+
+        config = CollectionConfig(
+            collection_id="multi-org",
+            title="Multi-org collection",
+            organizations={
+                "OrgA": OrgAccessConfig(cognito_group="org:OrgA"),
+                "OrgB": OrgAccessConfig(cognito_group="org:OrgB"),
+            },
+        )
+        collection_dal.put_collection(config)
+        event = _make_event(path="/collections/multi-org/items")
         resp = handler(event, None)
         assert resp["headers"]["Content-Type"] == "application/problem+json"
         body = json.loads(resp["body"])
         assert body["status"] == 400
+
+    def test_unknown_query_param_returns_400(self, _setup_with_features: None) -> None:
+        """Unknown query parameters must return 400 (OGC req/core/query-param-unknown)."""
+        event = _make_event(
+            path="/collections/test-collection/items",
+            query={"unknownParam": "value"},
+        )
+        resp = handler(event, None)
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert "unknown" in body.get("title", "").lower() or "unknown" in body.get("detail", "").lower()
+
+    def test_invalid_limit_returns_400(self, _setup_with_features: None) -> None:
+        """Non-integer limit must return 400 (OGC req/core/query-param-invalid)."""
+        event = _make_event(
+            path="/collections/test-collection/items",
+            query={"limit": "abc"},
+        )
+        resp = handler(event, None)
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert "limit" in body.get("detail", "").lower()
+
+    def test_invalid_bbox_returns_400(self, _setup_with_features: None) -> None:
+        """Malformed bbox must return 400 (OGC req/core/query-param-invalid)."""
+        event = _make_event(
+            path="/collections/test-collection/items",
+            query={"bbox": "not,a,valid,bbox"},
+        )
+        resp = handler(event, None)
+        assert resp["statusCode"] == 400
+
+    def test_known_property_filter_is_allowed(self, _setup_with_features: None) -> None:
+        """Parameters matching collection properties_schema are valid filters."""
+        event = _make_event(
+            path="/collections/test-collection/items",
+            query={"name": "test", "organization": "TestOrgA"},
+        )
+        resp = handler(event, None)
+        assert resp["statusCode"] == 200

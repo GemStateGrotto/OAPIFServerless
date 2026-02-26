@@ -394,10 +394,23 @@ class TestItemsIntegration:
         assert body["numberReturned"] == 1
         assert body["features"][0]["properties"]["name"] == "Feature 2"
 
-    def test_items_missing_org_returns_400(self, seeded_collection: CollectionConfig) -> None:
+    def test_items_missing_org_returns_400(
+        self,
+        handler_collection_dal: CollectionDAL,
+    ) -> None:
+        """Multi-org collection requires organization query parameter."""
+        config = CollectionConfig(
+            collection_id="multi-org-int",
+            title="Multi-org",
+            organizations={
+                "OrgA": OrgAccessConfig(cognito_group="org:OrgA"),
+                "OrgB": OrgAccessConfig(cognito_group="org:OrgB"),
+            },
+        )
+        handler_collection_dal.put_collection(config)
         resp = handler(
             _make_event(
-                path=f"/collections/{seeded_collection.collection_id}/items",
+                path="/collections/multi-org-int/items",
             ),
             None,
         )

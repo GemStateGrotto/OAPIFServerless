@@ -334,3 +334,119 @@ class TestUnauthenticatedSingleFeature:
             params={"organization": "TestOrgA"},
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Seed-feature discovery — unauthenticated without organization param
+# ---------------------------------------------------------------------------
+
+
+class TestSeedFeatureDiscovery:
+    """Seed features are visible anonymously without the organization param.
+
+    The acceptance-test collection has a single org (TestOrgA), so the
+    server auto-defaults to it.  This is the same path OGC CITE tests
+    follow (they don't know about the organization parameter).
+    """
+
+    def test_items_without_org_returns_200(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """GET items without organization param succeeds for single-org collection."""
+        resp = anon_client.get(f"/collections/{COLLECTION_ID}/items")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type"] == "FeatureCollection"
+
+    def test_seed_features_are_present(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """At least one seed feature is discoverable without auth."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"limit": "100"},
+        )
+        assert resp.status_code == 200
+        features = resp.json()["features"]
+        seed_names = {f["properties"].get("name") for f in features}
+        # At least one of the three seed features
+        expected = {"Alpha Cave", "Beta Cave", "Gamma Cave"}
+        assert seed_names & expected, f"Expected seed features in {seed_names}"
+
+    def test_single_seed_feature_by_id(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """A seed feature can be retrieved by ID without organization param."""
+        resp = anon_client.get(f"/collections/{COLLECTION_ID}/items/seed-cave-alpha")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type"] == "Feature"
+        assert body["id"] == "seed-cave-alpha"
+        assert body["properties"]["name"] == "Alpha Cave"
+
+
+# ---------------------------------------------------------------------------
+# Query parameter validation (OGC req/core/query-param-unknown & invalid)
+# ---------------------------------------------------------------------------
+
+
+class TestQueryParamValidation:
+    """OGC conformance: reject unknown and invalid query parameters."""
+
+    def test_unknown_query_param_returns_400(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """Unknown query parameters must return 400."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"totallyBogusParam": "value"},
+        )
+        assert resp.status_code == 400
+
+    def test_invalid_limit_returns_400(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """Non-integer limit must return 400."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"limit": "notAnInteger"},
+        )
+        assert resp.status_code == 400
+
+    def test_invalid_bbox_returns_400(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """Malformed bbox must return 400."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"bbox": "x,y,z,w"},
+        )
+        assert resp.status_code == 400
+
+    def test_valid_bbox_returns_200(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """Properly-formed bbox must be accepted."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"bbox": "-117,42,-111,49"},
+        )
+        assert resp.status_code == 200
+
+    def test_known_property_filter_is_accepted(
+        self,
+        anon_client: httpx.Client,
+    ) -> None:
+        """A query parameter matching a collection property is valid."""
+        resp = anon_client.get(
+            f"/collections/{COLLECTION_ID}/items",
+            params={"name": "test"},
+        )
+        assert resp.status_code == 200

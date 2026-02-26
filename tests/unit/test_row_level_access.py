@@ -460,8 +460,23 @@ class TestHandlerRowLevelAccess:
         body = json.loads(resp["body"])
         assert body["features"] == []
 
-    def test_unauthenticated_missing_org_returns_400(self, _setup_with_collection: None) -> None:
-        """Unauthenticated request without organization param returns 400."""
+    def test_unauthenticated_missing_org_returns_400(
+        self,
+        _setup_dals: None,
+        collection_dal: Any,
+    ) -> None:
+        """Unauthenticated request without organization param returns 400 for multi-org collection."""
+        from oapif.models.collection import CollectionConfig, OrgAccessConfig
+
+        config = CollectionConfig(
+            collection_id=COLLECTION,
+            title="Multi-org",
+            organizations={
+                ORG_A: OrgAccessConfig(cognito_group=f"org:{ORG_A}"),
+                ORG_B: OrgAccessConfig(cognito_group=f"org:{ORG_B}"),
+            },
+        )
+        collection_dal.put_collection(config)
         event = _make_event(path=f"/collections/{COLLECTION}/items")
         resp = handler(event, None)
         assert resp["statusCode"] == 400

@@ -23,6 +23,7 @@ htmlcov/
 coverage.xml
 .pytest_cache/
 .mypy_cache/
+testng-results*.xml
 
 # ---- Environment / Secrets ----
 .env

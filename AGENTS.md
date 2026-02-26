@@ -99,18 +99,15 @@ pytest -m acceptance                   # 2. Run acceptance tests
 
 **What the setup script creates** (idempotent, reads all config from CFN outputs):
 
-- Cognito groups: `org:TestOrgB`, `TestOrgB:members`, `TestOrgB:restricted`
 - Cognito users with permanent passwords and group memberships:
   - `test-editor` — `org:TestOrgA`, `editor`, `TestOrgA:members`
   - `test-admin`  — `org:TestOrgA`, `admin`, `TestOrgA:members`, `TestOrgA:restricted`
   - `test-viewer` — `org:TestOrgA`, `viewer`
-  - `test-other-org` — `org:TestOrgB`, `editor`, `TestOrgB:members`
-- DynamoDB config item: `acceptance-test` collection (Point, both orgs)
+- DynamoDB config item: `acceptance-test` collection (Point, single org TestOrgA)
 
 **What the teardown script removes:**
 
-- The four test users
-- The `org:TestOrgB` groups (stack-managed groups are left alone)
+- The three test users
 - All features and the config item for `acceptance-test`
 
 **Test conftest** authenticates users via `admin-initiate-auth` (ADMIN_USER_PASSWORD_AUTH)

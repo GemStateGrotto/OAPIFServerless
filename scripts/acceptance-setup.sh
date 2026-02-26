@@ -2,12 +2,11 @@
 # Set up acceptance test fixtures on a deployed AWS environment.
 #
 # Creates:
-#   - Cognito groups:  org:TestOrgB, TestOrgB:members, TestOrgB:restricted
 #   - Cognito users:   test-editor@oapif.test  (org:TestOrgA + editor + TestOrgA:members)
 #                       test-admin@oapif.test   (org:TestOrgA + admin  + TestOrgA:members + TestOrgA:restricted)
 #                       test-viewer@oapif.test  (org:TestOrgA + viewer)
-#                       test-other-org@oapif.test (org:TestOrgB + editor + TestOrgB:members)
 #   - DynamoDB config: "acceptance-test" test collection in the config table
+#   - DynamoDB seed features: public features for OGC conformance testing
 #
 # All values are derived from CloudFormation stack outputs — no manual env
 # var configuration beyond OAPIF_ENVIRONMENT (default: dev) and standard
@@ -49,8 +48,14 @@ CONFIG_TABLE=$(aws cloudformation describe-stacks \
     --query "Stacks[0].Outputs[?OutputKey=='ConfigTableName'].OutputValue" \
     --output text) || die "Could not read data stack outputs. Is $STACK_DATA deployed?"
 
+FEATURES_TABLE=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_DATA" \
+    --query "Stacks[0].Outputs[?OutputKey=='FeaturesTableName'].OutputValue" \
+    --output text) || die "Could not read features table name."
+
 info "User Pool: $USER_POOL_ID"
 info "Config Table: $CONFIG_TABLE"
+info "Features Table: $FEATURES_TABLE"
 
 # ── Status mode ──────────────────────────────────────────────────────
 
@@ -131,11 +136,6 @@ create_user() {
 echo ""
 info "Creating Cognito groups..."
 
-# Second org for cross-org isolation testing
-create_group "org:TestOrgB"          "Test organization B (acceptance tests)"
-create_group "TestOrgB:members"      "TestOrgB members visibility (acceptance tests)"
-create_group "TestOrgB:restricted"   "TestOrgB restricted visibility (acceptance tests)"
-
 # Existing groups (org:TestOrgA, TestOrgA:members,
 # TestOrgA:restricted, admin, editor, viewer) are created by the
 # auth stack CDK deploy — we don't recreate them here.
@@ -153,9 +153,6 @@ create_user "test-admin@oapif.test" "test-admin@oapif.test" \
 
 create_user "test-viewer@oapif.test" "test-viewer@oapif.test" \
     "org:TestOrgA" "viewer"
-
-create_user "test-other-org@oapif.test" "test-other-org@oapif.test" \
-    "org:TestOrgB" "editor" "TestOrgB:members"
 
 # ── Seed test collection ─────────────────────────────────────────────
 
@@ -194,13 +191,6 @@ else
                     "members":    {"S": "TestOrgA:members"},
                     "restricted": {"S": "TestOrgA:restricted"}
                 }}
-            }},
-            "TestOrgB": {"M": {
-                "cognito_group": {"S": "org:TestOrgB"},
-                "access_groups": {"M": {
-                    "members":    {"S": "TestOrgB:members"},
-                    "restricted": {"S": "TestOrgB:restricted"}
-                }}
             }}
         }},
         "extent": {"M": {
@@ -216,6 +206,54 @@ else
     }'
     ok "Created collection acceptance-test"
 fi
+
+# ── Seed public features ───────────────────────────────────────────────────
+
+echo ""
+info "Seeding public features for OGC conformance testing..."
+
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ETAG_BASE=$(date +%s)
+
+seed_feature() {
+    local fid="$1" name="$2" lon="$3" lat="$4" depth="$5" status="$6"
+    local etag="seed-${ETAG_BASE}-${fid}"
+
+    EXISTING=$(aws dynamodb get-item --table-name "$FEATURES_TABLE" \
+        --key "{\"PK\": {\"S\": \"TestOrgA#COLLECTION#acceptance-test\"}, \"SK\": {\"S\": \"FEATURE#${fid}\"}}" \
+        --query "Item.feature_id.S" --output text 2>/dev/null || echo "None")
+
+    if [[ "$EXISTING" == "$fid" ]]; then
+        skip "Feature $fid"
+        return
+    fi
+
+    aws dynamodb put-item --table-name "$FEATURES_TABLE" --item '{
+        "PK":            {"S": "TestOrgA#COLLECTION#acceptance-test"},
+        "SK":            {"S": "FEATURE#'"$fid"'"},
+        "feature_id":    {"S": "'"$fid"'"},
+        "collection_id": {"S": "acceptance-test"},
+        "organization":  {"S": "TestOrgA"},
+        "visibility":    {"S": "public"},
+        "geometry":      {"M": {"type": {"S": "Point"}, "coordinates": {"L": [{"N": "'"$lon"'"}, {"N": "'"$lat"'"}]}}},
+        "properties":    {"M": {
+            "name":        {"S": "'"$name"'"},
+            "depth_m":     {"N": "'"$depth"'"},
+            "status":      {"S": "'"$status"'"},
+            "survey_date": {"S": "2024-06-15"}
+        }},
+        "etag":          {"S": "'"$etag"'"},
+        "created_at":    {"S": "'"$TIMESTAMP"'"},
+        "updated_at":    {"S": "'"$TIMESTAMP"'"},
+        "deleted":       {"BOOL": false}
+    }'
+    ok "Created feature $fid ($name)"
+}
+
+# Three seed features at distinct locations within the collection extent
+seed_feature "seed-cave-alpha"   "Alpha Cave"   "-114.5"  "43.8"  "150"  "active"
+seed_feature "seed-cave-beta"    "Beta Cave"    "-113.2"  "44.6"  "85"   "active"
+seed_feature "seed-cave-gamma"   "Gamma Cave"   "-115.9"  "45.1"  "210"  "closed"
 
 # ── Summary ──────────────────────────────────────────────────────────
 

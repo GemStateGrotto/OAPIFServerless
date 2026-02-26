@@ -178,12 +178,6 @@ def viewer_token(user_pool_id: str, cognito_client_id: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def other_org_token(user_pool_id: str, cognito_client_id: str) -> str:
-    """JWT for test-other-org."""
-    return _authenticate(user_pool_id, cognito_client_id, "test-other-org@oapif.test")
-
-
-@pytest.fixture(scope="session")
 def editor_client(base_url: str, editor_token: str) -> Generator[httpx.Client]:
     """Authenticated httpx client for test-editor (editor role, TestOrgA, members)."""
     client = _make_client(base_url, editor_token)
@@ -203,14 +197,6 @@ def admin_client(base_url: str, admin_token: str) -> Generator[httpx.Client]:
 def viewer_client(base_url: str, viewer_token: str) -> Generator[httpx.Client]:
     """Authenticated httpx client for test-viewer (viewer role, TestOrgA, no visibility groups)."""
     client = _make_client(base_url, viewer_token)
-    yield client
-    client.close()
-
-
-@pytest.fixture(scope="session")
-def other_org_client(base_url: str, other_org_token: str) -> Generator[httpx.Client]:
-    """Authenticated httpx client for test-other-org (editor, TestOrgB)."""
-    client = _make_client(base_url, other_org_token)
     yield client
     client.close()
 

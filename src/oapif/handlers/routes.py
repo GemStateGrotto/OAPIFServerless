@@ -17,6 +17,7 @@ import jsonschema
 
 from oapif.auth import (
     AuthContext,
+    AuthError,
     check_field_permissions_for_create,
     check_field_permissions_for_replace,
     check_field_permissions_for_update,
@@ -39,6 +40,7 @@ from oapif.handlers.responses import (
     json_response,
     no_content_response,
 )
+from oapif.models.collection import CollectionConfig
 from oapif.models.feature import utcnow_iso
 from oapif.schema import generate_schema
 
@@ -127,26 +129,84 @@ def _get_query_params(event: dict[str, Any]) -> dict[str, str]:
     return event.get("queryStringParameters") or {}
 
 
-def _parse_bbox(raw: str) -> tuple[float, float, float, float] | None:
-    """Parse a ``bbox`` query parameter into a 4-tuple, or None on failure."""
-    try:
-        parts = [float(x.strip()) for x in raw.split(",")]
-        if len(parts) == 4:
-            return (parts[0], parts[1], parts[2], parts[3])
-    except ValueError, TypeError:
-        pass
-    return None
+def _parse_bbox(raw: str) -> tuple[float, float, float, float]:
+    """Parse a ``bbox`` query parameter into a 4-tuple.
+
+    Raises :class:`ValueError` if the value cannot be parsed.
+    """
+    parts = [float(x.strip()) for x in raw.split(",")]
+    if len(parts) == 4:
+        return (parts[0], parts[1], parts[2], parts[3])
+    msg = f"bbox must have exactly 4 values, got {len(parts)}"
+    raise ValueError(msg)
 
 
 def _parse_limit(raw: str | None, default: int = 10, maximum: int = 1000) -> int:
-    """Parse a ``limit`` query parameter, clamped to [1, maximum]."""
+    """Parse a ``limit`` query parameter, clamped to [1, maximum].
+
+    Raises :class:`ValueError` if the value is not an integer.
+    """
     if raw is None:
         return default
-    try:
-        val = int(raw)
-        return max(1, min(val, maximum))
-    except ValueError, TypeError:
-        return default
+    val = int(raw)
+    return max(1, min(val, maximum))
+
+
+def _validate_items_params(params: dict[str, str], config: CollectionConfig) -> dict[str, Any] | None:
+    """Validate query parameters for the items endpoint.
+
+    Returns an error-response dict if validation fails, or ``None`` if
+    all parameters are valid.
+    """
+    reserved = {"limit", "cursor", "bbox", "datetime", "organization", "f"}
+    allowed = reserved | set(config.properties_schema.keys())
+
+    unknown = sorted(set(params.keys()) - allowed)
+    if unknown:
+        return error_response(
+            400,
+            "Unknown query parameter",
+            detail=f"Unknown query parameter(s): {', '.join(unknown)}",
+        )
+
+    # Validate ``limit``
+    if "limit" in params:
+        try:
+            int(params["limit"])
+        except ValueError, TypeError:
+            return error_response(
+                400,
+                "Invalid parameter value",
+                detail=f"'limit' must be an integer, got '{params['limit']}'",
+            )
+
+    # Validate ``bbox``
+    if "bbox" in params:
+        try:
+            _parse_bbox(params["bbox"])
+        except ValueError, TypeError:
+            return error_response(
+                400,
+                "Invalid parameter value",
+                detail=f"'bbox' must be four comma-separated numbers, got '{params['bbox']}'",
+            )
+
+    return None
+
+
+def _default_org_for_collection(config: CollectionConfig) -> str | None:
+    """Return the sole org name if the collection has exactly one org.
+
+    Used to provide a default ``organization`` for unauthenticated
+    requests that omit the query parameter, so that OGC conformance
+    test suites (which don't know about our org model) can discover
+    public features.  Returns ``None`` if there are zero or multiple
+    orgs (caller should return the normal 400 error).
+    """
+    orgs = list(config.organizations.keys())
+    if len(orgs) == 1:
+        return orgs[0]
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +341,7 @@ def handle_items(
     """Return a paged feature collection.
 
     Supports query parameters: ``limit``, ``cursor``, ``bbox``,
-    and arbitrary property filters.
+    ``datetime``, and arbitrary property filters.
     """
     collection_id = path_params["collectionId"]
     params = _get_query_params(event)
@@ -289,22 +349,40 @@ def handle_items(
     # Validate collection exists
     col_dal = _get_collection_dal()
     try:
-        col_dal.get_collection(collection_id)
+        config = col_dal.get_collection(collection_id)
     except CollectionNotFoundError:
         return error_response(404, "Collection not found", detail=f"Collection '{collection_id}' does not exist.")
+
+    # Validate query parameters (unknown / invalid → 400)
+    validation_error = _validate_items_params(params, config)
+    if validation_error:
+        return validation_error
 
     # Parse standard parameters
     limit = _parse_limit(params.get("limit"))
     cursor = params.get("cursor")
     bbox = _parse_bbox(params["bbox"]) if "bbox" in params else None
 
-    # Resolve authentication and authorization context
-    auth: AuthContext = resolve_auth_context(event, query_params=params)
+    # Resolve authentication and authorization context.
+    # If the org param is missing and the collection has exactly one org,
+    # default to that org so OGC conformance tests can discover features.
+    try:
+        auth: AuthContext = resolve_auth_context(event, query_params=params)
+    except AuthError as exc:
+        if exc.status_code == 400 and not params.get("organization"):
+            default_org = _default_org_for_collection(config)
+            if default_org:
+                params_with_org = {**params, "organization": default_org}
+                auth = resolve_auth_context(event, query_params=params_with_org)
+            else:
+                raise
+        else:
+            raise
     organization = auth.organization
     visibility_filter = list(auth.visibility_filter)
 
-    # Known non-property params to exclude from property filters
-    reserved = {"limit", "cursor", "bbox", "organization", "f"}
+    # Property filters — params already validated; strip reserved keys
+    reserved = {"limit", "cursor", "bbox", "datetime", "organization", "f"}
     property_filters = {k: v for k, v in params.items() if k not in reserved}
 
     feat_dal = _get_feature_dal()
@@ -371,8 +449,27 @@ def handle_feature(
     feature_id = path_params["featureId"]
     params = _get_query_params(event)
 
-    # Resolve authentication and authorization context
-    auth: AuthContext = resolve_auth_context(event, query_params=params)
+    # Resolve authentication and authorization context.
+    # Default to the sole org when the collection has exactly one.
+    try:
+        auth: AuthContext = resolve_auth_context(event, query_params=params)
+    except AuthError as exc:
+        if exc.status_code == 400 and not params.get("organization"):
+            col_dal = _get_collection_dal()
+            try:
+                config = col_dal.get_collection(collection_id)
+            except CollectionNotFoundError:
+                return error_response(
+                    404, "Collection not found", detail=f"Collection '{collection_id}' does not exist."
+                )
+            default_org = _default_org_for_collection(config)
+            if default_org:
+                params_with_org = {**params, "organization": default_org}
+                auth = resolve_auth_context(event, query_params=params_with_org)
+            else:
+                raise
+        else:
+            raise
     organization = auth.organization
     visibility_filter = list(auth.visibility_filter)
 
@@ -501,10 +598,29 @@ def handle_api(
                 "operationId": f"getItems_{cid}",
                 "tags": ["Features"],
                 "parameters": [
-                    {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10, "maximum": 1000}},
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "style": "form",
+                        "explode": False,
+                        "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 1000},
+                    },
                     {"name": "cursor", "in": "query", "schema": {"type": "string"}},
-                    {"name": "bbox", "in": "query", "schema": {"type": "string"}},
-                    {"name": "organization", "in": "query", "required": True, "schema": {"type": "string"}},
+                    {
+                        "name": "bbox",
+                        "in": "query",
+                        "style": "form",
+                        "explode": False,
+                        "schema": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 6},
+                    },
+                    {
+                        "name": "datetime",
+                        "in": "query",
+                        "style": "form",
+                        "explode": False,
+                        "schema": {"type": "string"},
+                    },
+                    {"name": "organization", "in": "query", "schema": {"type": "string"}},
                 ],
                 "responses": {"200": {"description": "GeoJSON FeatureCollection"}},
             },
@@ -516,7 +632,7 @@ def handle_api(
                 "tags": ["Features"],
                 "parameters": [
                     {"name": "featureId", "in": "path", "required": True, "schema": {"type": "string"}},
-                    {"name": "organization", "in": "query", "required": True, "schema": {"type": "string"}},
+                    {"name": "organization", "in": "query", "schema": {"type": "string"}},
                 ],
                 "responses": {"200": {"description": "GeoJSON Feature"}},
             },

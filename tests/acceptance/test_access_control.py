@@ -127,41 +127,6 @@ class TestVisibilityByRole:
         assert "restricted" not in levels
 
 
-class TestOrgIsolation:
-    """Cross-org isolation — TestOrgB must never see TestOrgA features."""
-
-    def test_other_org_cannot_see_primary_org_features(
-        self,
-        editor_client: httpx.Client,
-        other_org_client: httpx.Client,
-        test_run_id: str,
-    ) -> None:
-        """Features created by TestOrgA editor are invisible to TestOrgB."""
-        # Create a feature as TestOrgA editor
-        fid, _ = create_feature(editor_client, test_run_id, name="Org Isolation Test")
-
-        # TestOrgB editor should not see it in their items
-        resp = other_org_client.get(
-            f"/collections/{COLLECTION_ID}/items",
-            params={"limit": "100"},
-        )
-        assert resp.status_code == 200
-        feature_ids = [f["id"] for f in resp.json()["features"]]
-        assert fid not in feature_ids
-
-    def test_other_org_cannot_get_primary_org_feature(
-        self,
-        editor_client: httpx.Client,
-        other_org_client: httpx.Client,
-        test_run_id: str,
-    ) -> None:
-        """Direct GET of a TestOrgA feature by TestOrgB returns 404."""
-        fid, _ = create_feature(editor_client, test_run_id, name="Org GET Test")
-
-        resp = other_org_client.get(f"/collections/{COLLECTION_ID}/items/{fid}")
-        assert resp.status_code == 404
-
-
 class TestOrganizationAutoPopulation:
     """Organization is auto-populated on creation and immutable."""
 

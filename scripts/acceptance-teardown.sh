@@ -2,8 +2,7 @@
 # Tear down acceptance test fixtures from a deployed AWS environment.
 #
 # Removes:
-#   - Cognito users:  test-editor, test-admin, test-viewer, test-other-org
-#   - Cognito groups: org:TestOrgB, TestOrgB:members, TestOrgB:restricted
+#   - Cognito users:  test-editor, test-admin, test-viewer
 #   - DynamoDB config: "acceptance-test" collection config item
 #   - DynamoDB features: all features in the "acceptance-test" collection
 #
@@ -53,7 +52,7 @@ info "Features Table: $FEATURES_TABLE"
 echo ""
 info "Deleting Cognito test users..."
 
-for username in test-editor@oapif.test test-admin@oapif.test test-viewer@oapif.test test-other-org@oapif.test; do
+for username in test-editor@oapif.test test-admin@oapif.test test-viewer@oapif.test; do
     if aws cognito-idp admin-get-user --user-pool-id "$USER_POOL_ID" \
         --username "$username" &>/dev/null; then
         aws cognito-idp admin-delete-user --user-pool-id "$USER_POOL_ID" \
@@ -64,32 +63,18 @@ for username in test-editor@oapif.test test-admin@oapif.test test-viewer@oapif.t
     fi
 done
 
-# ── Delete test-only groups ──────────────────────────────────────────
-
-echo ""
-info "Deleting test-only Cognito groups..."
-
-for group in "org:TestOrgB" "TestOrgB:members" "TestOrgB:restricted"; do
-    if aws cognito-idp get-group --user-pool-id "$USER_POOL_ID" \
-        --group-name "$group" &>/dev/null; then
-        aws cognito-idp delete-group --user-pool-id "$USER_POOL_ID" \
-            --group-name "$group"
-        ok "Deleted group $group"
-    else
-        skip "Group $group"
-    fi
-done
-
 # ── Delete acceptance-test features ─────────────────────────────────
 
 echo ""
 info "Deleting acceptance-test features..."
 
 FEATURE_COUNT=0
+# Query by each known org prefix for this collection
+for pk_prefix in "TestOrgA#COLLECTION#acceptance-test" "COLLECTION#acceptance-test"; do
 while true; do
     ITEMS=$(aws dynamodb query --table-name "$FEATURES_TABLE" \
         --key-condition-expression "PK = :pk" \
-        --expression-attribute-values '{":pk": {"S": "COLLECTION#acceptance-test"}}' \
+        --expression-attribute-values "{\":pk\": {\"S\": \"$pk_prefix\"}}" \
         --projection-expression "PK, SK" \
         --limit 25 \
         --output json 2>/dev/null)
@@ -109,6 +94,7 @@ print(json.dumps({'$FEATURES_TABLE': requests}))
 
     aws dynamodb batch-write-item --request-items "$DELETE_REQUESTS" >/dev/null
     FEATURE_COUNT=$((FEATURE_COUNT + COUNT))
+done
 done
 
 if [[ "$FEATURE_COUNT" -gt 0 ]]; then
