@@ -137,10 +137,14 @@ configurable via `OAPIF_CHECK_MAX_AGE`):
 
 | Staged files | Check required | Stamp file |
 |---|---|---|
-| Only docs (`*.md`, `LICENSE`, `.gitignore`, `.env.example`) | None | — |
+| Only docs / CI / config (`*.md`, `LICENSE`, `.gitignore`, `.env.example`, `.github/`) | None | — |
 | Backend (`src/`, `deploy/`, `tests/`, `scripts/`) | `check-backend.sh` | `.checks_passed_backend` |
 | Plugin (`plugin/*.py` at any depth) | `check-plugin.sh` | `.checks_passed_plugin` |
 | Mix of backend + plugin | Both | Both stamps |
+
+Files outside the backend and plugin directories (e.g., `.github/`, root config files,
+documentation) are **not gated** — the hook allows commits with no stamp check. You can
+commit changes to these files directly without running any quality gate.
 
 ### Backend Quality Gate
 
