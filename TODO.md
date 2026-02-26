@@ -173,7 +173,7 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 13: Testing and Compliance
 
-- [ ] Run OGC API - Features conformance test suite (CITE) against deployed instance
+- [x] Run OGC API - Features conformance test suite (CITE) against deployed instance
 - [x] Remote acceptance test suite (see [tests/TODO.md](tests/TODO.md) for full breakdown):
   - [x] Test infrastructure & conventions (CFN-derived config, fixtures, markers)
   - [x] Read endpoints (unauthenticated)
