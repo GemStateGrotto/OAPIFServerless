@@ -163,13 +163,13 @@ This document tracks the full build-out of the project. Phases are roughly seque
 
 ## Phase 12: OpenAPI Definition and Documentation
 
-- [ ] Generate OpenAPI 3.0 definition dynamically from collection configs
-  - [ ] Include all Part 1 and Part 4 paths
-  - [ ] Include per-collection schema references
-  - [ ] Include security scheme (Cognito JWT bearer)
-- [ ] Serve OpenAPI definition at `/api` (JSON) and link from landing page
-- [ ] Optionally serve Swagger UI or Redoc at `/api.html`
-- [ ] Validate generated OpenAPI definition against OGC API Features conformance tests
+- [x] Generate OpenAPI 3.0 definition dynamically from collection configs
+  - [x] Include all Part 1 and Part 4 paths
+  - [x] Include per-collection schema references
+  - [x] Include security scheme (Cognito JWT bearer)
+- [x] Serve OpenAPI definition at `/api` (JSON) and link from landing page
+- [N/A] ~~Optionally serve Swagger UI or Redoc at `/api.html`~~
+- [x] Validate generated OpenAPI definition against OGC API Features conformance tests
 
 ## Phase 13: Testing and Compliance
 

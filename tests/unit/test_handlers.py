@@ -691,6 +691,86 @@ class TestOpenAPI:
         body = json.loads(resp["body"])
         assert body["servers"][0]["url"] == "https://api.example.com"
 
+    def test_api_has_components(self, _setup_with_collection: None) -> None:
+        """OpenAPI definition must include components with securitySchemes and schemas."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        assert "components" in body
+        assert "securitySchemes" in body["components"]
+        assert "schemas" in body["components"]
+
+    def test_api_security_scheme_bearer(self, _setup_dals: None) -> None:
+        """bearerAuth security scheme must be present."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        scheme = body["components"]["securitySchemes"]["bearerAuth"]
+        assert scheme["type"] == "http"
+        assert scheme["scheme"] == "bearer"
+        assert scheme["bearerFormat"] == "JWT"
+
+    def test_api_collection_schemas(self, _setup_with_collection: None) -> None:
+        """Each collection must produce returnable and receivable schemas in components."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        schemas = body["components"]["schemas"]
+        assert "test_collection_returnable" in schemas
+        assert "test_collection_receivable" in schemas
+
+    def test_api_items_has_post(self, _setup_with_collection: None) -> None:
+        """Items endpoint must include a POST operation."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        items_path = body["paths"]["/collections/test-collection/items"]
+        assert "post" in items_path
+        assert items_path["post"]["operationId"] == "createFeature_test-collection"
+        assert items_path["post"]["security"] == [{"bearerAuth": []}]
+
+    def test_api_feature_has_put_patch_delete(self, _setup_with_collection: None) -> None:
+        """Single feature endpoint must include PUT, PATCH, DELETE operations."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        feat_path = body["paths"]["/collections/test-collection/items/{featureId}"]
+        assert "put" in feat_path
+        assert "patch" in feat_path
+        assert "delete" in feat_path
+        # All write ops require security
+        for method in ["put", "patch", "delete"]:
+            assert feat_path[method]["security"] == [{"bearerAuth": []}]
+
+    def test_api_crud_response_codes(self, _setup_with_collection: None) -> None:
+        """CRUD operations must declare appropriate response codes."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        items = body["paths"]["/collections/test-collection/items"]
+        feat = body["paths"]["/collections/test-collection/items/{featureId}"]
+        assert "201" in items["post"]["responses"]
+        assert "412" in feat["put"]["responses"]
+        assert "428" in feat["put"]["responses"]
+        assert "204" in feat["delete"]["responses"]
+
+    def test_api_schema_refs(self, _setup_with_collection: None) -> None:
+        """GET items response must $ref the returnable schema."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        items_get = body["paths"]["/collections/test-collection/items"]["get"]
+        geo_content = items_get["responses"]["200"]["content"]["application/geo+json"]
+        features_items = geo_content["schema"]["properties"]["features"]["items"]
+        assert features_items["$ref"] == "#/components/schemas/test_collection_returnable"
+
+    def test_api_has_api_path(self, _setup_dals: None) -> None:
+        """OpenAPI definition must include the /api path itself."""
+        event = _make_event(path="/api")
+        resp = handler(event, None)
+        body = json.loads(resp["body"])
+        assert "/api" in body["paths"]
+
 
 # ===================================================================
 # Error responses

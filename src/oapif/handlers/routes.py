@@ -542,6 +542,47 @@ def handle_schema(
 # ---------------------------------------------------------------------------
 
 
+def _build_feature_id_param() -> dict[str, Any]:
+    """Reusable featureId path parameter."""
+    return {"name": "featureId", "in": "path", "required": True, "schema": {"type": "string"}}
+
+
+def _build_org_query_param() -> dict[str, Any]:
+    """Reusable organization query parameter."""
+    return {"name": "organization", "in": "query", "schema": {"type": "string"}}
+
+
+def _build_if_match_header() -> dict[str, Any]:
+    """Reusable If-Match header parameter."""
+    return {
+        "name": "If-Match",
+        "in": "header",
+        "required": True,
+        "description": "ETag of the current feature version (RFC 9110)",
+        "schema": {"type": "string"},
+    }
+
+
+def _build_request_body_ref(ref: str, *, required: bool = True) -> dict[str, Any]:
+    """Reusable request body referencing a schema component."""
+    return {
+        "required": required,
+        "content": {
+            "application/geo+json": {"schema": {"$ref": ref}},
+        },
+    }
+
+
+def _build_merge_patch_body(ref: str) -> dict[str, Any]:
+    """Request body for JSON Merge Patch (RFC 7396)."""
+    return {
+        "required": True,
+        "content": {
+            "application/merge-patch+json": {"schema": {"$ref": ref}},
+        },
+    }
+
+
 def handle_api(
     *,
     event: dict[str, Any],
@@ -550,7 +591,9 @@ def handle_api(
 ) -> dict[str, Any]:
     """Return a dynamically generated OpenAPI 3.0 definition.
 
-    Enumerates all collections and builds paths for each.
+    Enumerates all collections and builds paths for each, including
+    Part 1 (read) and Part 4 (CRUD) operations, per-collection schema
+    references, and a Cognito JWT security scheme.
     """
     col_dal = _get_collection_dal()
     configs = col_dal.list_collections()
@@ -572,6 +615,19 @@ def handle_api(
                 "responses": {"200": {"description": "Conformance classes"}},
             },
         },
+        "/api": {
+            "get": {
+                "summary": "OpenAPI definition",
+                "operationId": "getApiDefinition",
+                "tags": ["Capabilities"],
+                "responses": {
+                    "200": {
+                        "description": "OpenAPI 3.0 definition",
+                        "content": {"application/vnd.oai.openapi+json;version=3.0": {}},
+                    },
+                },
+            },
+        },
         "/collections": {
             "get": {
                 "summary": "List collections",
@@ -582,8 +638,18 @@ def handle_api(
         },
     }
 
+    schemas: dict[str, Any] = {}
+
     for cfg in configs:
         cid = cfg.collection_id
+        safe_id = cid.replace("-", "_")
+        returnable_ref = f"#/components/schemas/{safe_id}_returnable"
+        receivable_ref = f"#/components/schemas/{safe_id}_receivable"
+
+        # Generate component schemas for this collection
+        schemas[f"{safe_id}_returnable"] = generate_schema(cfg, receivable=False)
+        schemas[f"{safe_id}_receivable"] = generate_schema(cfg, receivable=True)
+
         paths[f"/collections/{cid}"] = {
             "get": {
                 "summary": f"Collection metadata for {cfg.title}",
@@ -620,9 +686,47 @@ def handle_api(
                         "explode": False,
                         "schema": {"type": "string"},
                     },
-                    {"name": "organization", "in": "query", "schema": {"type": "string"}},
+                    _build_org_query_param(),
                 ],
-                "responses": {"200": {"description": "GeoJSON FeatureCollection"}},
+                "responses": {
+                    "200": {
+                        "description": "GeoJSON FeatureCollection",
+                        "content": {
+                            "application/geo+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"type": "string", "enum": ["FeatureCollection"]},
+                                        "features": {
+                                            "type": "array",
+                                            "items": {"$ref": returnable_ref},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "post": {
+                "summary": f"Create a feature in {cfg.title}",
+                "operationId": f"createFeature_{cid}",
+                "tags": ["Features"],
+                "security": [{"bearerAuth": []}],
+                "requestBody": _build_request_body_ref(receivable_ref),
+                "responses": {
+                    "201": {
+                        "description": "Feature created",
+                        "headers": {
+                            "Location": {"description": "URL of the created feature", "schema": {"type": "string"}},
+                            "ETag": {"description": "Entity tag of the created feature", "schema": {"type": "string"}},
+                        },
+                        "content": {"application/geo+json": {"schema": {"$ref": returnable_ref}}},
+                    },
+                    "401": {"description": "Authentication required"},
+                    "403": {"description": "Insufficient permissions"},
+                    "422": {"description": "Schema validation failed"},
+                },
             },
         }
         paths[f"/collections/{cid}/items/{{featureId}}"] = {
@@ -631,10 +735,73 @@ def handle_api(
                 "operationId": f"getFeature_{cid}",
                 "tags": ["Features"],
                 "parameters": [
-                    {"name": "featureId", "in": "path", "required": True, "schema": {"type": "string"}},
-                    {"name": "organization", "in": "query", "schema": {"type": "string"}},
+                    _build_feature_id_param(),
+                    _build_org_query_param(),
                 ],
-                "responses": {"200": {"description": "GeoJSON Feature"}},
+                "responses": {
+                    "200": {
+                        "description": "GeoJSON Feature",
+                        "headers": {
+                            "ETag": {"description": "Entity tag of the feature", "schema": {"type": "string"}},
+                        },
+                        "content": {"application/geo+json": {"schema": {"$ref": returnable_ref}}},
+                    },
+                    "404": {"description": "Feature not found"},
+                },
+            },
+            "put": {
+                "summary": f"Replace a feature in {cfg.title}",
+                "operationId": f"replaceFeature_{cid}",
+                "tags": ["Features"],
+                "security": [{"bearerAuth": []}],
+                "parameters": [_build_feature_id_param(), _build_if_match_header()],
+                "requestBody": _build_request_body_ref(receivable_ref),
+                "responses": {
+                    "200": {
+                        "description": "Feature replaced",
+                        "headers": {
+                            "ETag": {"description": "New entity tag", "schema": {"type": "string"}},
+                        },
+                        "content": {"application/geo+json": {"schema": {"$ref": returnable_ref}}},
+                    },
+                    "404": {"description": "Feature not found"},
+                    "412": {"description": "Precondition failed (ETag mismatch)"},
+                    "422": {"description": "Schema validation failed"},
+                    "428": {"description": "Precondition required (If-Match missing)"},
+                },
+            },
+            "patch": {
+                "summary": f"Update a feature in {cfg.title} (JSON Merge Patch)",
+                "operationId": f"updateFeature_{cid}",
+                "tags": ["Features"],
+                "security": [{"bearerAuth": []}],
+                "parameters": [_build_feature_id_param(), _build_if_match_header()],
+                "requestBody": _build_merge_patch_body(receivable_ref),
+                "responses": {
+                    "200": {
+                        "description": "Feature updated",
+                        "headers": {
+                            "ETag": {"description": "New entity tag", "schema": {"type": "string"}},
+                        },
+                        "content": {"application/geo+json": {"schema": {"$ref": returnable_ref}}},
+                    },
+                    "404": {"description": "Feature not found"},
+                    "412": {"description": "Precondition failed (ETag mismatch)"},
+                    "428": {"description": "Precondition required (If-Match missing)"},
+                },
+            },
+            "delete": {
+                "summary": f"Delete a feature from {cfg.title}",
+                "operationId": f"deleteFeature_{cid}",
+                "tags": ["Features"],
+                "security": [{"bearerAuth": []}],
+                "parameters": [_build_feature_id_param(), _build_if_match_header()],
+                "responses": {
+                    "204": {"description": "Feature deleted"},
+                    "404": {"description": "Feature not found"},
+                    "412": {"description": "Precondition failed (ETag mismatch)"},
+                    "428": {"description": "Precondition required (If-Match missing)"},
+                },
             },
         }
         paths[f"/collections/{cid}/schema"] = {
@@ -649,8 +816,36 @@ def handle_api(
                         "schema": {"type": "string", "enum": ["returnable", "receivable"]},
                     },
                 ],
-                "responses": {"200": {"description": "JSON Schema"}},
+                "responses": {
+                    "200": {
+                        "description": "JSON Schema",
+                        "content": {"application/schema+json": {}},
+                    },
+                },
             },
+        }
+
+    # Build security scheme using Cognito config
+    try:
+        cfg_rt = _get_config()
+        cognito_region = cfg_rt.cognito_region or cfg_rt.aws_region
+        pool_id = cfg_rt.cognito_user_pool_id
+        issuer_url = f"https://cognito-idp.{cognito_region}.amazonaws.com/{pool_id}" if pool_id else ""
+    except KeyError, OSError:
+        issuer_url = ""
+
+    security_schemes: dict[str, Any] = {
+        "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Cognito JWT access token",
+        },
+    }
+    if issuer_url:
+        security_schemes["openIdConnect"] = {
+            "type": "openIdConnect",
+            "openIdConnectUrl": f"{issuer_url}/.well-known/openid-configuration",
         }
 
     openapi: dict[str, Any] = {
@@ -662,6 +857,10 @@ def handle_api(
         },
         "servers": [{"url": base_url}],
         "paths": paths,
+        "components": {
+            "securitySchemes": security_schemes,
+            "schemas": schemas,
+        },
     }
 
     return json_response(200, openapi, content_type="application/vnd.oai.openapi+json;version=3.0")

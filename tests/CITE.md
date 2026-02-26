@@ -3,78 +3,88 @@
 Run the [OGC CITE TEAM Engine](https://cite.opengeospatial.org/teamengine/) against
 a deployed instance to verify OGC API – Features Part 1 conformance.
 
+## Quick Start
+
+```bash
+./scripts/cite.sh                        # auto-detect API URL from CFN
+./scripts/cite.sh https://your-api-url   # explicit URL
+./scripts/cite.sh --cleanup              # remove container only
+```
+
+The script handles container lifecycle, waits for startup, runs the suite,
+parses results, and cleans up. Exit code 0 = all tests passed.
+
 ## Prerequisites
 
 - Docker available on `PATH`
 - A deployed instance with at least one collection containing public features
-  (the acceptance-setup script seeds three: `seed-cave-alpha`, `seed-cave-beta`,
-  `seed-cave-gamma`)
+  (the acceptance-setup script seeds the `acceptance-test` collection)
 - The collection must be **single-org** so unauthenticated requests auto-default
   to that org (CITE doesn't know about the `organization` parameter)
+- For auto-detect mode: AWS CLI configured with access to the deployment account
 
-## 1. Start TEAM Engine
+## What the Script Does
+
+1. Resolves the API URL (from the arg or CloudFormation outputs)
+2. Smoke-checks `GET /conformance` to ensure the API is reachable
+3. Starts `ogccite/ets-ogcapi-features10:latest` on port 8081
+4. Waits up to 60 s for Tomcat startup
+5. Runs the `ogcapi-features-1.0` test suite (`noofcollections=-1`)
+6. Parses `testng-results.xml` and prints a summary
+7. Removes the container and results file
+
+Total runtime: ~2–4 minutes (mostly network latency between TEAM Engine
+and the API).
+
+## Manual Steps (if needed)
+
+<details>
+<summary>Expand for step-by-step commands</summary>
+
+### Start TEAM Engine
 
 ```bash
 docker run -d --name teamengine -p 8081:8080 ogccite/ets-ogcapi-features10:latest
+# Wait ~15 s, then verify:
+curl -s -o /dev/null -w "%{http_code}" -u ogctest:ogctest \
+  http://localhost:8081/teamengine/rest/suites
+# Should return 200 or 401
 ```
 
-Wait ~15 seconds for Tomcat to start. Verify with:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/teamengine/rest/suites
-# Should return 200
-```
-
-## 2. Run the Test Suite
-
-Replace `$API_URL` with the API Gateway URL (no trailing slash):
+### Run the Test Suite
 
 ```bash
 API_URL="https://lp1v0amdsh.execute-api.us-west-2.amazonaws.com"
 
+# URL-encode the IUT parameter (curl --data-urlencode doesn't work for query params in GET)
+IUT=$(printf '%s' "${API_URL}/" | sed 's/:/%3A/g; s/\//%2F/g')
+
 curl -s -u ogctest:ogctest \
   -H "Accept: application/xml" \
-  "http://localhost:8081/teamengine/rest/suites/ogcapi-features-1.0/run?iut=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${API_URL}/', safe=''))")&noofcollections=-1" \
+  "http://localhost:8081/teamengine/rest/suites/ogcapi-features-1.0/run?iut=${IUT}&noofcollections=-1" \
   -o testng-results.xml
 ```
 
-Parameters:
-- `iut` — URL-encoded root URL of the API (include trailing `/`)
-- `noofcollections=-1` — test all collections (use `1` for faster runs)
-- Credentials: `ogctest:ogctest` (built into the Docker image)
-
-The test run takes 1–3 minutes depending on the number of features and network latency.
-
-## 3. Parse Results
+### Parse Results
 
 ```bash
-python3 -c "
-import xml.etree.ElementTree as ET
-from collections import Counter
+PASSED=$(grep -oP 'passed="[^"]*"' testng-results.xml | head -1 | sed 's/passed="//;s/"//')
+FAILED=$(grep -oP 'failed="[^"]*"' testng-results.xml | head -1 | sed 's/failed="//;s/"//')
+SKIPPED=$(grep -oP 'skipped="[^"]*"' testng-results.xml | head -1 | sed 's/skipped="//;s/"//')
+echo "Passed: ${PASSED} | Failed: ${FAILED} | Skipped: ${SKIPPED}"
 
-tree = ET.parse('testng-results.xml')
-root = tree.getroot()
-attrs = root.attrib
-print(f'Passed: {attrs[\"passed\"]} | Failed: {attrs[\"failed\"]} | Skipped: {attrs[\"skipped\"]}')
-
-for test in root.iter('test-method'):
-    if test.attrib.get('status') == 'FAIL':
-        name = test.attrib.get('name', '?')
-        desc = test.attrib.get('description', '')[:120]
-        exc = test.find('.//exception/message')
-        msg = exc.text.strip()[:200] if exc is not None and exc.text else ''
-        print(f'  FAIL: {name}')
-        print(f'    {desc}')
-        if msg:
-            print(f'    {msg}')
-"
+# Show any failures:
+grep -oP 'status="FAIL"[^>]*name="[^"]*"' testng-results.xml \
+  | sed 's/.*name="//;s/"//' | sort -u | while read -r n; do echo "  FAIL: $n"; done
 ```
 
-## 4. Cleanup
+### Cleanup
 
 ```bash
 docker rm -f teamengine
 ```
+
+</details>
 
 ## Expected Results
 
