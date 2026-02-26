@@ -1,193 +1,66 @@
 # TODO — OAPIFServerless Build Plan
 
-This document tracks the full build-out of the project. Phases are roughly sequential but some tasks within a phase can be parallelized.  While instructions here appear explicit, treat these as guidelines rather than strict rules — if you see a better way to implement something, feel free to deviate. The goal is a working implementation that meets the project requirements, not strict adherence to this plan.
+This document tracks the full build-out of the project. Phases are roughly sequential
+but some tasks within a phase can be parallelized. While instructions here appear
+explicit, treat these as guidelines rather than strict rules — if you see a better way
+to implement something, feel free to deviate. The goal is a working implementation
+that meets the project requirements, not strict adherence to this plan.
 
 ---
 
-## Phase 0: Project Scaffolding
+## Completed
 
-- [x] Choose IaC approach (CDK vs SAM) and initialize project skeleton
-  - Decision: **AWS CDK (Python)** — single language, no TypeScript/Python mix
-- [x] Set up Python project structure with `pyproject.toml`, linting (ruff), and formatting (black)
-- [x] Set up pytest with DynamoDB Local for integration tests
-- [x] Create CI pipeline (GitHub Actions) for lint, test, and deploy
-- [x] Re-enable `--cov-fail-under=80` for integration test CI job once integration tests exist
-- [x] Define environment variable / config schema for deployment parameters
+The following phases are **complete**. They are retained as a reference for what
+the backend, infrastructure, and acceptance test suite cover.
 
-## Phase 1: DynamoDB Data Layer
+- **Phase 0:** Project scaffolding — CDK (Python), pyproject.toml, ruff, pytest, CI, config schema
+- **Phase 1:** DynamoDB data layer — DAL with CRUD, ETag concurrency, cursor pagination, change tracking
+- **Phase 2:** Collection config & schema — config loader, dynamic JSON Schema, Part 5 returnables/receivables
+- **Phase 3:** OAPIF Core read endpoints — Part 1 (landing, conformance, collections, items, OpenAPI, schema)
+- **Phase 4:** Authentication & authorization — Cognito User Pool, JWT authorizer, group extraction, unauth path
+- **Phase 5:** Row-level access control — org tenant scoping, visibility filtering at query time, 404-not-403
+- **Phase 6:** OAPIF Part 4 write endpoints — CRUD, ETag/If-Match, schema validation, change tracking
+- **Phase 7:** Field-level authorization — editor/admin/viewer role enforcement on PUT/PATCH
+- **Phase 11:** Deployment system — CDK stacks (data + api), deploy CLI, custom domain, dependency bundling
+- **Phase 12:** OpenAPI definition — dynamic generation, CITE validation, served at `/api`
+- **Phase 13 (partial):** Testing & compliance — OGC CITE Part 1 (89/89), full acceptance suite ([tests/TODO.md](tests/TODO.md))
 
-- [x] Design and document final DynamoDB table schemas (features, change tracking, collection config)
-- [x] Implement data access layer (DAL) for feature CRUD against DynamoDB
-  - [x] `create_feature(collection_id, feature)` → assigns ID, sets ETag, writes to features + change log
-  - [x] `get_feature(collection_id, feature_id)` → returns feature with ETag
-  - [x] `query_features(collection_id, limit, cursor, bbox?, datetime?, property_filters?)` → paged results
-  - [x] `replace_feature(collection_id, feature_id, feature, if_match)` → conditional write, change log
-  - [x] `update_feature(collection_id, feature_id, patch, if_match)` → merge patch, conditional write, change log
-  - [x] `delete_feature(collection_id, feature_id, if_match)` → soft-delete, change log
-- [x] Implement ETag generation and conditional expression enforcement in DynamoDB
-- [x] Implement cursor-based pagination (encode/decode opaque cursor tokens)
-- [x] Write unit and integration tests for the DAL
+---
 
-## Phase 2: Collection Configuration and Schema
+## Phase 8–9: QGIS Plugin
 
-- [x] Design collection configuration format defining:
-  - [x] Collection ID, title, description, extent
-  - [x] Feature schema (property names, types, required fields, enums)
-  - [x] `visibility` enum values for this collection
-  - [x] Organization-to-Cognito-group mapping
-  - [x] Access control group mappings
-- [x] Implement config loader (read from DynamoDB config table)
-- [x] Implement dynamic schema endpoint (`/collections/{collectionId}/schema`) returning JSON Schema
-  - [x] Mark `id` as `readOnly`
-  - [x] Mark geometry role with `x-ogc-role: primary-geometry`
-  - [x] Include `visibility` as enum per collection config
-  - [x] Include `organization` as read-only / server-populated field
-  - [x] Distinguish returnables vs receivables per Part 5
-- [x] Write tests for schema generation
+See [plugin/TODO.md](plugin/TODO.md) for the detailed build plan, organized by
+testing methodology (pure Python → headless PyQGIS → GUI widget tests).
 
-## Phase 3: OAPIF Core (Read) Endpoints
+Summary of plugin phases:
 
-- [x] Implement Lambda request handler (API Gateway HTTP API event → response)
-- [x] Implement OAPIF Part 1 endpoints:
-  - [x] `GET /` — Landing page with required links (self, service-desc, service-doc, conformance, data)
-  - [x] `GET /conformance` — Conformance declaration
-  - [x] `GET /api` — OpenAPI 3.0 definition (dynamically generated from collection configs)
-  - [x] `GET /collections` — List all collections with extent, links, itemType
-  - [x] `GET /collections/{collectionId}` — Single collection metadata
-  - [x] `GET /collections/{collectionId}/items` — Feature collection with paging, bbox, datetime, property filters
-  - [x] `GET /collections/{collectionId}/items/{featureId}` — Single feature with ETag header
-  - [x] `GET /collections/{collectionId}/schema` — JSON Schema for the collection
-- [x] Implement content negotiation (GeoJSON primary; JSON for non-feature resources)
-- [x] Implement `Link` headers and response link objects (self, alternate, next, collection)
-- [x] Implement `numberMatched` / `numberReturned` / `timeStamp` in collection responses
-- [x] Write integration tests against DynamoDB Local for all read endpoints
+- [ ] P0: Test infrastructure — QGIS Docker (LTR) service, test runner script, CI workflow
+- [ ] P1: Plugin scaffolding + pure Python core — HTTP client, OIDC/PKCE token management, config
+- [ ] P2: Auth + data provider — QgsAuthMethodConfig, Bearer token injection, built-in OAPIF provider, layer loading, pagination, bbox
+- [ ] P3: Feature editing — create/update/delete via plugin, ETag concurrency, conflict resolution
+- [ ] P4: GUI widgets — connection dialog, layer browser, edit forms, conflict dialog, project file browser, settings
 
-## Phase 4: Authentication and Authorization Infrastructure
 
-- [x] Define Cognito User Pool with OIDC configuration (CDK)
-  - [x] Configure hosted UI domain for OIDC authorization code flow
-  - [x] Define app client for interactive login (PKCE, authorization code flow)
-  - [x] Define app client for machine-to-machine (client credentials, optional)
-- [x] Define Cognito groups matching access control model:
-  - [x] Organization groups (one per org, e.g., `org:TestOrgA`)
-  - [x] Visibility-level groups within each org (e.g., `TestOrgA:restricted`, `TestOrgA:members`)
-  - [x] Role groups (e.g., `editor`, `admin`, `viewer`, per-collection variants)
-- [x] Configure API Gateway with optional JWT authorizer (allow unauthenticated GET requests)
-- [x] Implement Lambda middleware to extract and validate Cognito claims and group memberships
-- [x] Implement unauthenticated path: require `organization` query parameter, restrict to `public` visibility
-- [x] For authenticated requests, derive org from JWT; validate `organization` param if provided
-- [x] Write tests for token parsing, group extraction, and unauthenticated org-parameter flow
+## Phase 10: Project File Sync — Backend
 
-## Phase 5: Row-Level Access Control
+Lambda endpoints and CDK infrastructure for S3 project file management.
+Plugin UI for this phase is in [plugin/TODO.md](plugin/TODO.md) (Phase P4).
 
-- [x] Implement organization tenant scoping: extract caller's org from JWT (authenticated) or `organization` query param (unauthenticated), scope all queries to that org (hard boundary, never cross-org)
-- [x] For unauthenticated requests: require `organization` query parameter, enforce `visibility = public` only
-- [x] For authenticated requests: derive org from Cognito groups, validate `organization` param if provided
-- [x] Auto-populate `organization` on feature creation from caller's Cognito org group
-- [x] Reject PUT/PATCH attempts to change `organization` field
-- [x] Implement visibility filter builder: given a user's Cognito groups, build a filter for `visibility` within the org
-- [x] Apply org + visibility filters in `query_features` and `get_feature` DAL methods (filter at query time, not post-query)
-- [x] Return `404` (not `403`) when a user requests a specific feature they cannot see
-- [x] Ensure `numberMatched` and collection extents reflect only visible features within the caller's org and visibility level
-- [x] Write tests: unauthenticated user with `organization=X` sees only `public` items; user in org X never sees org Y features; user with `members` access sees `public` + `members` but not `restricted`
+- [ ] Lambda endpoint: `GET /projects` → list available project files for the caller's org
+- [ ] Lambda endpoint: `GET /projects/{projectId}/download` → presigned S3 GET URL
+- [ ] Lambda endpoint: `PUT /projects/{projectId}/upload` → presigned S3 PUT URL
+- [ ] Authorization: editor/admin for upload, all authenticated users for download
+- [ ] CDK: S3 bucket configuration, Lambda IAM policy for `s3:GetObject` / `s3:PutObject`
+- [ ] CDK: API Gateway routes for `/projects` endpoints
+- [ ] Handle concurrent project edits (last-write-wins or warn user via ETag)
+- [ ] Unit tests for Lambda handlers (mock S3)
+- [ ] Integration tests with moto S3
 
-## Phase 6: OAPIF Part 4 (Write) Endpoints
+## Phase 13: Testing and Compliance (remaining)
 
-- [x] Implement write endpoints:
-  - [x] `POST /collections/{collectionId}/items` — Create feature (201 + Location header)
-  - [x] `PUT /collections/{collectionId}/items/{featureId}` — Replace feature (200, ETag in response)
-  - [x] `PATCH /collections/{collectionId}/items/{featureId}` — Update feature via JSON Merge Patch (200)
-  - [x] `DELETE /collections/{collectionId}/items/{featureId}` — Delete feature (204)
-  - [x] `OPTIONS` on items and item endpoints — Return Allow header with supported methods
-- [x] Enforce `If-Match` / ETag optimistic concurrency on PUT, PATCH, DELETE
-  - [x] Return `412 Precondition Failed` on ETag mismatch
-  - [x] Return `428 Precondition Required` if `If-Match` is omitted
-- [x] Validate request bodies against collection schema; return `422` on schema violation
-- [x] Write all mutations to the change tracking table
-- [x] Write integration tests for the full CRUD lifecycle
-
-## Phase 7: Field-Level Authorization
-
-- [x] Define field-level permission model:
-  - [x] `editor` groups can modify geometry + feature attribute properties
-  - [x] `admin` groups can modify `visibility` and group membership metadata (`organization` is always immutable)
-  - [x] Viewers cannot write at all
-- [x] Implement server-side field-level enforcement in PUT/PATCH handlers:
-  - [x] Parse incoming changes, compare to allowed fields for the caller's role
-  - [x] Reject with `403 Forbidden` and a clear error message if unauthorized fields are modified
-- [x] Write tests: editor can change geometry but not visibility; admin can change visibility but not organization; viewer is rejected
-
-## Phase 8: QGIS Plugin — Authentication
-
-- [ ] Scaffold QGIS plugin structure (`metadata.txt`, `__init__.py`, etc.)
-- [ ] Implement OIDC authorization code flow with PKCE against Cognito hosted UI
-  - [ ] Launch system browser for login
-  - [ ] Listen on localhost redirect URI to capture authorization code
-  - [ ] Exchange code for tokens; store refresh token securely
-  - [ ] Auto-refresh access token before expiry
-- [ ] Register a custom `QgsAuthMethodConfig` or `QgsNetworkAccessManager` handler to inject Bearer tokens
-- [ ] Write tests for token lifecycle (mock Cognito responses)
-
-## Phase 9: QGIS Plugin — Feature Layer Access
-
-- [ ] Implement OAPIF data provider or use QGIS's built-in WFS/OAPIF provider with custom auth
-- [ ] Connect to `/collections` to list available layers
-- [ ] Load features from `/collections/{collectionId}/items` as a QGIS vector layer
-- [ ] Support paging (follow `next` links automatically)
-- [ ] Support `bbox` filter based on current map extent
-- [ ] For authorized users, support editing features and pushing changes via PUT/PATCH/DELETE
-- [ ] Handle `412 Precondition Failed` gracefully (prompt user to reload and retry)
-
-## Phase 10: QGIS Plugin — Project File Sync
-
-- [ ] Implement S3 presigned URL flow for project file download/upload
-  - [ ] Lambda endpoint: `GET /projects/{projectId}/download` → presigned S3 GET URL
-  - [ ] Lambda endpoint: `PUT /projects/{projectId}/upload` → presigned S3 PUT URL
-- [ ] QGIS plugin UI to browse available projects, download `.qgz`, and open
-- [ ] QGIS plugin UI to save current project and upload to S3 (editor/admin only)
-- [ ] Handle concurrent project edits (last-write-wins or warn user)
-
-## Phase 11: Deployment System
-
-- [x] Define CDK stack architecture: `DataStack` (stateful) + `ApiStack` (stateless)
-- [x] Implement `RemovalPolicy.RETAIN` and termination protection for non-dev environments
-- [x] Implement deployment config via environment variables (`OAPIF_*`) and CDK context
-- [x] Finalize CDK stacks:
-  - [x] Auth stack: Cognito User Pool, clients, groups, domain (Phase 4)
-  - [x] Wire API Gateway routes to Lambda (Phase 3 / Phase 6)
-- [x] Create deployment CLI script (`scripts/deploy.sh`) with bootstrap, deploy, destroy commands
-- [x] Write deployment documentation with prerequisites (AWS CLI, Node.js, Python)
-- [x] Bundle pip dependencies (jsonschema, pydantic) in Lambda deployment package
-- [x] Test full deploy-from-scratch on a clean AWS account
-- [x] Add support for custom domain name on API Gateway (optional)
-
-## Phase 12: OpenAPI Definition and Documentation
-
-- [x] Generate OpenAPI 3.0 definition dynamically from collection configs
-  - [x] Include all Part 1 and Part 4 paths
-  - [x] Include per-collection schema references
-  - [x] Include security scheme (Cognito JWT bearer)
-- [x] Serve OpenAPI definition at `/api` (JSON) and link from landing page
-- [N/A] ~~Optionally serve Swagger UI or Redoc at `/api.html`~~
-- [x] Validate generated OpenAPI definition against OGC API Features conformance tests
-
-## Phase 13: Testing and Compliance
-
-- [x] Run OGC API - Features conformance test suite (CITE) against deployed instance
-- [x] Remote acceptance test suite (see [tests/TODO.md](tests/TODO.md) for full breakdown):
-  - [x] Test infrastructure & conventions (CFN-derived config, fixtures, markers)
-  - [x] Read endpoints (unauthenticated)
-  - [x] Authentication & token lifecycle
-  - [x] Full CRUD lifecycle (authenticated)
-  - [x] ETag / optimistic concurrency
-  - [x] Schema validation
-  - [x] Row-level access control (org + visibility)
-  - [x] Field-level authorization
-  - [x] Pagination
-  - [x] Filtering
-  - [x] OPTIONS / CORS
-  - [x] Error responses
-- [ ] Test QGIS plugin against the deployed API end-to-end
+- [x] OGC CITE Part 1 Core conformance (89 passed, 0 failed)
+- [x] Remote acceptance test suite (see [tests/TODO.md](tests/TODO.md))
+- [ ] QGIS plugin end-to-end tests — see [plugin/TODO.md](plugin/TODO.md)
 - [ ] Load test: verify Lambda concurrency and DynamoDB throughput under simulated load
 - [ ] Security review: test auth bypass, row-level filter evasion, field-level enforcement
 - [ ] Test deployment on a second AWS account to validate portability

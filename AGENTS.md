@@ -32,9 +32,10 @@ Do not pipe long-running commands through `tail`, `head`, or other filters that 
 ```
 .devcontainer/   # DevContainer configuration
 src/oapif/       # Lambda backend (handlers/, dal/, auth/, models/)
+plugin/          # QGIS plugin (PyQGIS / Qt) — see plugin/TODO.md
 deploy/          # CDK app and stacks
 tests/           # pytest suite (unit/, integration/, acceptance/)
-scripts/         # Quality-gate, deploy, and acceptance test setup/teardown
+scripts/         # Quality-gate, deploy, acceptance, and QGIS test scripts
 .github/         # CI workflows
 ```
 
@@ -82,7 +83,8 @@ Configuration is via `OAPIF_*` environment variables or CDK `--context` flags. D
 - Unit tests for all business logic (authorization, schema validation, data access)
 - Integration tests against DynamoDB Local for data layer
 - Mock AWS services with `moto` where DynamoDB Local is not available
-- QGIS plugin tests should be runnable headless where possible
+- QGIS plugin tests run in a Docker container (`qgis/qgis:ltr`) with Xvfb — see `plugin/TODO.md` for test tiers
+- Plugin targets Python 3.12 (QGIS-bundled), not the backend's Python 3.14
 
 ### Acceptance Tests (Remote)
 
