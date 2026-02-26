@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Quality gate — single source of truth for CI and local pre-commit.
+# Backend quality gate — checks src/, deploy/, tests/, scripts/ only.
+# Does NOT cover plugin/ — use ./scripts/check-plugin.sh for that.
 #
 # Usage:
-#   ./scripts/check.sh                 # run ALL checks
-#   ./scripts/check.sh lint            # ruff lint + format only
-#   ./scripts/check.sh types           # mypy only
-#   ./scripts/check.sh unit            # unit tests only
-#   ./scripts/check.sh integration     # integration tests only
-#   ./scripts/check.sh synth           # CDK synth only
-#   ./scripts/check.sh lint types      # combine any checks
-#   ./scripts/check.sh --fix           # auto-fix lint/format, then run selected checks
-#   ./scripts/check.sh --fix lint      # auto-fix lint/format only
+#   ./scripts/check-backend.sh                 # run ALL checks
+#   ./scripts/check-backend.sh lint            # ruff lint + format only
+#   ./scripts/check-backend.sh types           # mypy only
+#   ./scripts/check-backend.sh unit            # unit tests only
+#   ./scripts/check-backend.sh integration     # integration tests only
+#   ./scripts/check-backend.sh synth           # CDK synth only
+#   ./scripts/check-backend.sh lint types      # combine any checks
+#   ./scripts/check-backend.sh --fix           # auto-fix lint/format, then run selected checks
+#   ./scripts/check-backend.sh --fix lint      # auto-fix lint/format only
 #
 # Exit code 0 = all checks pass; non-zero = number of failed checks.
 
@@ -78,12 +79,13 @@ want() { [[ -v CHECKS["$1"] ]]; }
 # ── Lint & format ────────────────────────────────────────────────────
 
 if want lint; then
+    RUFF_DIRS=(src/ deploy/ tests/ scripts/)
     if $FIX; then
-        run_check "ruff fix"    ruff check --fix .
-        run_check "ruff format" ruff format .
+        run_check "ruff fix"    ruff check --fix "${RUFF_DIRS[@]}"
+        run_check "ruff format" ruff format "${RUFF_DIRS[@]}"
     else
-        run_check "ruff lint"   ruff check .
-        run_check "ruff format" ruff format --check .
+        run_check "ruff lint"   ruff check "${RUFF_DIRS[@]}"
+        run_check "ruff format" ruff format --check "${RUFF_DIRS[@]}"
     fi
 fi
 
@@ -150,7 +152,7 @@ for c in lint types unit integration synth; do
 done
 
 if $ALL_REQUESTED && (( failed == 0 )); then
-    date +%s > "$(git rev-parse --show-toplevel)/.checks_passed"
+    date +%s > "$(git rev-parse --show-toplevel)/.checks_passed_backend"
 fi
 
 exit $failed

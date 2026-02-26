@@ -24,7 +24,12 @@ coverage.xml
 .pytest_cache/
 .mypy_cache/
 testng-results*.xml
-.checks_passed
+.checks_passed_backend
+.checks_passed_plugin
+
+# ---- QGIS Plugin Tests ----
+plugin/tests/output/
+plugin/.checks_passed_plugin
 
 # ---- Environment / Secrets ----
 .env

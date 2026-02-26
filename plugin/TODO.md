@@ -130,54 +130,54 @@ Run tiers selectively:
 Container setup/teardown scripts, test runner, CI integration, and the bare plugin
 skeleton needed to validate that the test environment works.
 
-- [ ] Create `scripts/qgis-test-setup.sh` (container setup)
-  - [ ] Pull `qgis/qgis:ltr` image via DinD daemon
-  - [ ] Resolve CFN stack outputs in the DevContainer:
-    - [ ] `OAPIF_BASE_URL` from API stack `ApiUrl` output
-    - [ ] `OAPIF_TOKEN_ENDPOINT` from auth stack `UserPoolDomainUrl` output + `/oauth2/token`
-    - [ ] `OAPIF_CLIENT_ID` from auth stack `AppClientId` output
-  - [ ] Authenticate test users via `admin-initiate-auth` in the DevContainer:
-    - [ ] `OAPIF_EDITOR_REFRESH_TOKEN` for `test-editor@oapif.test`
-    - [ ] `OAPIF_ADMIN_REFRESH_TOKEN` for `test-admin@oapif.test`
-    - [ ] `OAPIF_VIEWER_REFRESH_TOKEN` for `test-viewer@oapif.test`
-  - [ ] `docker run -d --name oapif-qgis-test` with:
-    - [ ] Xvfb startup in entrypoint (`Xvfb :99 -screen 0 1024x768x24 &`)
-    - [ ] Volume mounts: workspace `plugin/` and `tests/` into container
-    - [ ] Bind-mount `/tmp/.X11-unix` from DevContainer (for interactive QGIS sessions)
-    - [ ] Environment: `QT_QPA_PLATFORM=offscreen`, `DISPLAY=:99` (Xvfb default for tests), plus all `OAPIF_*` vars above
-    - [ ] No AWS credentials — all AWS interaction stays in the DevContainer
-  - [ ] Install test dependencies inside the container (`pip install pytest pytest-cov`)
-  - [ ] `--status` flag: show whether container is running and healthy
-  - [ ] Idempotent: skip if container already running, print status
-- [ ] Create `scripts/qgis-test.sh` test runner
-  - [ ] Verify `oapif-qgis-test` container is running (helpful error if not: "Run ./scripts/qgis-test-setup.sh first")
-  - [ ] `docker exec oapif-qgis-test python3 -m pytest ...` with tier markers
-  - [ ] Accept tier arguments (`unit`, `headless`, `widget`, or omit for all)
-  - [ ] Map screenshot output to host-accessible directory
-  - [ ] Exit with pytest's exit code for CI integration
-- [ ] Create `scripts/qgis-test-teardown.sh` (container cleanup)
-  - [ ] `docker stop oapif-qgis-test && docker rm oapif-qgis-test`
-  - [ ] Idempotent: no error if container doesn't exist
-  - [ ] Optionally clean up `plugin/tests/output/`
-- [ ] Create `plugin/tests/conftest.py`
-  - [ ] `QgsApplication` init/teardown fixture (session-scoped, GUI mode based on tier)
-  - [ ] Plugin path injection (`sys.path` for plugin imports inside QGIS container)
-  - [ ] Base URL fixture (reads `OAPIF_BASE_URL` env var — set at container startup)
-  - [ ] Token refresh helper: POST `grant_type=refresh_token` to `OAPIF_TOKEN_ENDPOINT` with `OAPIF_CLIENT_ID` and persona refresh token via `urllib` (no AWS SDK)
-  - [ ] Session-scoped token fixtures that call the refresh helper to get fresh ID tokens from `OAPIF_EDITOR_REFRESH_TOKEN`, `OAPIF_ADMIN_REFRESH_TOKEN`, `OAPIF_VIEWER_REFRESH_TOKEN`
-- [ ] Create pytest marker definitions and config for plugin test tiers
-- [ ] Add `.gitignore` entries for `plugin/tests/output/`
-- [ ] Smoke test: start `QgsApplication`, assert `QgsProviderRegistry` has `OAPIF` provider, exit
-- [ ] Create `scripts/qgis-interactive.sh` (interactive QGIS session)
-  - [ ] Verify `oapif-qgis-test` container is running
-  - [ ] Refresh an ID token from the editor refresh token (same `urllib` POST as conftest)
-  - [ ] `docker exec -e DISPLAY=$DISPLAY -e QT_QPA_PLATFORM=xcb` to launch QGIS with host X server
-  - [ ] Load plugin from `/plugin` volume mount via `--code /plugin` or QGIS startup config
-  - [ ] Pass auth token and base URL so plugin connects on launch
-- [ ] Add GitHub Actions CI job for QGIS plugin tests
-  - [ ] Run `qgis-test-setup.sh` (after `acceptance-setup.sh`)
-  - [ ] Run `qgis-test.sh` for all tiers
-  - [ ] Run `qgis-test-teardown.sh` in `always()` post-step
+- [x] Create `scripts/qgis-test-setup.sh` (container setup)
+  - [x] Pull `qgis/qgis:ltr` image via DinD daemon
+  - [x] Resolve CFN stack outputs in the DevContainer:
+    - [x] `OAPIF_BASE_URL` from API stack `ApiUrl` output
+    - [x] `OAPIF_TOKEN_ENDPOINT` from auth stack `UserPoolDomainUrl` output + `/oauth2/token`
+    - [x] `OAPIF_CLIENT_ID` from auth stack `AppClientId` output
+  - [x] Authenticate test users via `admin-initiate-auth` in the DevContainer:
+    - [x] `OAPIF_EDITOR_REFRESH_TOKEN` for `test-editor@oapif.test`
+    - [x] `OAPIF_ADMIN_REFRESH_TOKEN` for `test-admin@oapif.test`
+    - [x] `OAPIF_VIEWER_REFRESH_TOKEN` for `test-viewer@oapif.test`
+  - [x] `docker run -d --name oapif-qgis-test` with:
+    - [x] Xvfb startup in entrypoint (`Xvfb :99 -screen 0 1024x768x24 &`)
+    - [x] Volume mounts: workspace `plugin/` and `tests/` into container
+    - [x] Bind-mount `/tmp/.X11-unix` from DevContainer (for interactive QGIS sessions)
+    - [x] Environment: `QT_QPA_PLATFORM=offscreen`, `DISPLAY=:99` (Xvfb default for tests), plus all `OAPIF_*` vars above
+    - [x] No AWS credentials — all AWS interaction stays in the DevContainer
+  - [x] Install test dependencies inside the container (`pip install pytest pytest-cov`)
+  - [x] `--status` flag: show whether container is running and healthy
+  - [x] Idempotent: skip if container already running, print status
+- [x] Create `scripts/qgis-test.sh` test runner
+  - [x] Verify `oapif-qgis-test` container is running (helpful error if not: "Run ./scripts/qgis-test-setup.sh first")
+  - [x] `docker exec oapif-qgis-test python3 -m pytest ...` with tier markers
+  - [x] Accept tier arguments (`unit`, `headless`, `widget`, or omit for all)
+  - [x] Map screenshot output to host-accessible directory
+  - [x] Exit with pytest's exit code for CI integration
+- [x] Create `scripts/qgis-test-teardown.sh` (container cleanup)
+  - [x] `docker stop oapif-qgis-test && docker rm oapif-qgis-test`
+  - [x] Idempotent: no error if container doesn't exist
+  - [x] Optionally clean up `plugin/tests/output/`
+- [x] Create `plugin/tests/conftest.py`
+  - [x] `QgsApplication` init/teardown fixture (session-scoped, GUI mode based on tier)
+  - [x] Plugin path injection (`sys.path` for plugin imports inside QGIS container)
+  - [x] Base URL fixture (reads `OAPIF_BASE_URL` env var — set at container startup)
+  - [x] Token refresh helper: POST `grant_type=refresh_token` to `OAPIF_TOKEN_ENDPOINT` with `OAPIF_CLIENT_ID` and persona refresh token via `urllib` (no AWS SDK)
+  - [x] Session-scoped token fixtures that call the refresh helper to get fresh ID tokens from `OAPIF_EDITOR_REFRESH_TOKEN`, `OAPIF_ADMIN_REFRESH_TOKEN`, `OAPIF_VIEWER_REFRESH_TOKEN`
+- [x] Create pytest marker definitions and config for plugin test tiers
+- [x] Add `.gitignore` entries for `plugin/tests/output/`
+- [x] Smoke test: start `QgsApplication`, assert `QgsProviderRegistry` has `OAPIF` provider, exit
+- [x] Create `scripts/qgis-interactive.sh` (interactive QGIS session)
+  - [x] Verify `oapif-qgis-test` container is running
+  - [x] Refresh an ID token from the editor refresh token (same `urllib` POST as conftest)
+  - [x] `docker exec -e DISPLAY=$DISPLAY -e QT_QPA_PLATFORM=xcb` to launch QGIS with host X server
+  - [x] Load plugin from `/plugin` volume mount via `--code /plugin` or QGIS startup config
+  - [x] Pass auth token and base URL so plugin connects on launch
+- [x] Add GitHub Actions CI job for QGIS plugin tests
+  - [x] Run `qgis-test-setup.sh` (after `acceptance-setup.sh`)
+  - [x] Run `qgis-test.sh` for all tiers
+  - [x] Run `qgis-test-teardown.sh` in `always()` post-step
 
 ## Phase P1: Plugin Scaffolding + Pure Python Core
 

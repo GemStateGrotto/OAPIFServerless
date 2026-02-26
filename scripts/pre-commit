@@ -1,34 +1,76 @@
 #!/usr/bin/env bash
-# Git pre-commit hook — verifies that ./scripts/check.sh (all checks)
-# was run recently. Rejects the commit if the timestamp is stale or missing.
+# Git pre-commit hook — verifies the appropriate check suite(s) ran recently.
 #
-# The full check suite writes a timestamp to .checks_passed on success.
-# This hook just verifies that file is fresh — no re-running of checks.
+# Whitelists paths that each check suite covers:
+#   - src/, deploy/, tests/, scripts/  → require .checks_passed_backend
+#   - plugin/*.py (any depth)          → require .checks_passed_plugin
+#   - Anything else                    → no checks required
 #
-# Configure the max age (seconds) via OAPIF_CHECK_MAX_AGE (default: 60).
+# Configure max age (seconds) via OAPIF_CHECK_MAX_AGE (default: 60).
 #
-# Installed automatically by postCreateCommand in devcontainer.json.
-# Manual install:  cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Install:  cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 set -euo pipefail
 
 MAX_AGE="${OAPIF_CHECK_MAX_AGE:-60}"
-STAMP_FILE="$(git rev-parse --show-toplevel)/.checks_passed"
+ROOT="$(git rev-parse --show-toplevel)"
 
-if [[ ! -f "$STAMP_FILE" ]]; then
-    echo "ERROR: No check results found."
-    echo "Run ./scripts/check.sh (all checks) before committing."
-    exit 1
+# ── Classify staged files ────────────────────────────────────────────
+
+NEED_BACKEND=false
+NEED_PLUGIN=false
+
+while IFS= read -r file; do
+    case "$file" in
+        src/* | deploy/* | tests/* | scripts/*)
+            NEED_BACKEND=true
+            ;;
+        plugin/*.py)
+            NEED_PLUGIN=true
+            ;;
+    esac
+done < <(git diff --cached --name-only)
+
+# ── Helper: verify a stamp file ─────────────────────────────────────
+
+check_stamp() {
+    local stamp_file="$1"
+    local scope="$2"
+    local check_cmd="$3"
+
+    if [[ ! -f "$stamp_file" ]]; then
+        echo "ERROR: No ${scope} check results found."
+        echo "Run ${check_cmd} before committing."
+        exit 1
+    fi
+
+    local stamp now age
+    stamp=$(cat "$stamp_file")
+    now=$(date +%s)
+    age=$(( now - stamp ))
+
+    if (( age > MAX_AGE )); then
+        echo "ERROR: ${scope^} checks are stale (${age}s ago, max ${MAX_AGE}s)."
+        echo "Run ${check_cmd} before committing."
+        exit 1
+    fi
+
+    echo "✓ ${scope^} checks passed ${age}s ago (max ${MAX_AGE}s)"
+}
+
+# ── Verify required stamps ──────────────────────────────────────────
+
+if ! $NEED_BACKEND && ! $NEED_PLUGIN; then
+    echo "✓ No checked directories changed — no checks required."
+    exit 0
 fi
 
-stamp=$(cat "$STAMP_FILE")
-now=$(date +%s)
-age=$(( now - stamp ))
-
-if (( age > MAX_AGE )); then
-    echo "ERROR: Checks are stale (${age}s ago, max ${MAX_AGE}s)."
-    echo "Run ./scripts/check.sh (all checks) before committing."
-    exit 1
+if $NEED_BACKEND; then
+    check_stamp "$ROOT/.checks_passed_backend" "backend" "./scripts/check-backend.sh"
 fi
 
-echo "✓ Checks passed ${age}s ago (max ${MAX_AGE}s) — proceeding with commit."
+if $NEED_PLUGIN; then
+    check_stamp "$ROOT/.checks_passed_plugin" "plugin" "./scripts/check-plugin.sh"
+fi
+
+echo "Proceeding with commit."

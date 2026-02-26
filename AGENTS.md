@@ -33,6 +33,7 @@ Do not pipe long-running commands through `tail`, `head`, or other filters that 
 .devcontainer/   # DevContainer configuration
 src/oapif/       # Lambda backend (handlers/, dal/, auth/, models/)
 plugin/          # QGIS plugin (PyQGIS / Qt) — see plugin/TODO.md
+  plugin/scripts/  # Plugin quality gate (runs inside QGIS container)
 deploy/          # CDK app and stacks
 tests/           # pytest suite (unit/, integration/, acceptance/)
 scripts/         # Quality-gate, deploy, acceptance, and QGIS test scripts
@@ -130,33 +131,53 @@ outputs. No manual env var config beyond `OAPIF_ENVIRONMENT` and AWS credentials
 
 ## Pre-Commit Quality Gate
 
-**Before every commit, run the full check suite** (no subset arguments):
+The pre-commit hook classifies staged files and requires the appropriate
+check suite(s) to have run recently (default: within 60 seconds,
+configurable via `OAPIF_CHECK_MAX_AGE`):
+
+| Staged files | Check required | Stamp file |
+|---|---|---|
+| Only docs (`*.md`, `LICENSE`, `.gitignore`, `.env.example`) | None | — |
+| Backend (`src/`, `deploy/`, `tests/`, `scripts/`) | `check-backend.sh` | `.checks_passed_backend` |
+| Plugin (`plugin/*.py` at any depth) | `check-plugin.sh` | `.checks_passed_plugin` |
+| Mix of backend + plugin | Both | Both stamps |
+
+### Backend Quality Gate
+
+Covers `src/`, `deploy/`, `tests/`, `scripts/` — does **not** touch `plugin/`:
 
 ```bash
-./scripts/check.sh                 # ALL checks — required before committing
-./scripts/check.sh --fix           # auto-fix lint/format, then run all checks
+./scripts/check-backend.sh             # ALL backend checks — required before backend commits
+./scripts/check-backend.sh --fix       # auto-fix lint/format, then run all checks
 ```
 
-Do **not** run a subset (e.g., `./scripts/check.sh lint`) as a substitute for a
-full run before committing. Subsets are useful during development but do not
-satisfy the commit requirement.
-
-When all checks pass, `check.sh` writes a timestamp to `.checks_passed`. The git
-pre-commit hook verifies this file is recent (default: within 60 seconds,
-configurable via `OAPIF_CHECK_MAX_AGE`). If the timestamp is missing or stale,
-the commit is rejected with a clear message.
-
-Available check subsets (for iterating during development):
+Available subsets (for iterating during development):
 
 ```bash
-./scripts/check.sh lint            # ruff lint + format only
-./scripts/check.sh types           # mypy only
-./scripts/check.sh unit            # unit tests only
-./scripts/check.sh integration     # integration tests only
-./scripts/check.sh synth           # CDK synth only
-./scripts/check.sh lint types      # combine any subset
-./scripts/check.sh --fix lint      # auto-fix lint/format only
+./scripts/check-backend.sh lint        # ruff lint + format only
+./scripts/check-backend.sh types       # mypy only
+./scripts/check-backend.sh unit        # unit tests only
+./scripts/check-backend.sh integration # integration tests only
+./scripts/check-backend.sh synth       # CDK synth only
+./scripts/check-backend.sh lint types  # combine any subset
+./scripts/check-backend.sh --fix lint  # auto-fix lint/format only
 ```
+
+### Plugin-Only Quality Gate
+
+Runs ruff and mypy inside the QGIS Docker container (Python 3.12,
+matching the plugin target). Does **not** touch backend code:
+
+```bash
+./scripts/check-plugin.sh              # ALL plugin checks — required before plugin-only commits
+./scripts/check-plugin.sh --fix        # auto-fix lint/format, then run all checks
+./scripts/check-plugin.sh lint         # ruff only
+./scripts/check-plugin.sh types        # mypy only
+```
+
+Requires the QGIS container (`./scripts/qgis-test-setup.sh`). The wrapper
+calls `docker exec oapif-qgis-test /plugin/scripts/check.sh` — all tools
+run natively in the container.
 
 If the hook is missing:
 
