@@ -140,4 +140,17 @@ summary+="$(IFS=', '; echo "${parts[*]}")"
 summary+="  (${elapsed}s)"
 printf "%b\n" "$summary"
 
+# ── Timestamp flag (full suite only) ─────────────────────────────────
+# When ALL checks are requested and all pass, write a timestamp file.
+# The pre-commit hook checks this file's age instead of re-running checks.
+
+ALL_REQUESTED=true
+for c in lint types unit integration synth; do
+    [[ -v CHECKS["$c"] ]] || { ALL_REQUESTED=false; break; }
+done
+
+if $ALL_REQUESTED && (( failed == 0 )); then
+    date +%s > "$(git rev-parse --show-toplevel)/.checks_passed"
+fi
+
 exit $failed

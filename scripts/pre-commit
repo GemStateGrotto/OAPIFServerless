@@ -1,11 +1,34 @@
 #!/usr/bin/env bash
-# Git pre-commit hook — runs lint, format, and type checks.
-# Blocks the commit if any check fails.
+# Git pre-commit hook — verifies that ./scripts/check.sh (all checks)
+# was run recently. Rejects the commit if the timestamp is stale or missing.
+#
+# The full check suite writes a timestamp to .checks_passed on success.
+# This hook just verifies that file is fresh — no re-running of checks.
+#
+# Configure the max age (seconds) via OAPIF_CHECK_MAX_AGE (default: 60).
 #
 # Installed automatically by postCreateCommand in devcontainer.json.
 # Manual install:  cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 set -euo pipefail
 
-echo "Running pre-commit checks…"
-exec "$(git rev-parse --show-toplevel)/scripts/check.sh"
+MAX_AGE="${OAPIF_CHECK_MAX_AGE:-60}"
+STAMP_FILE="$(git rev-parse --show-toplevel)/.checks_passed"
+
+if [[ ! -f "$STAMP_FILE" ]]; then
+    echo "ERROR: No check results found."
+    echo "Run ./scripts/check.sh (all checks) before committing."
+    exit 1
+fi
+
+stamp=$(cat "$STAMP_FILE")
+now=$(date +%s)
+age=$(( now - stamp ))
+
+if (( age > MAX_AGE )); then
+    echo "ERROR: Checks are stale (${age}s ago, max ${MAX_AGE}s)."
+    echo "Run ./scripts/check.sh (all checks) before committing."
+    exit 1
+fi
+
+echo "✓ Checks passed ${age}s ago (max ${MAX_AGE}s) — proceeding with commit."

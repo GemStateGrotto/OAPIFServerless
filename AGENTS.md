@@ -130,27 +130,39 @@ outputs. No manual env var config beyond `OAPIF_ENVIRONMENT` and AWS credentials
 
 ## Pre-Commit Quality Gate
 
-Run before every commit:
+**Before every commit, run the full check suite** (no subset arguments):
 
 ```bash
-./scripts/check.sh                 # ALL checks (lint, format, types, tests, CDK synth)
+./scripts/check.sh                 # ALL checks — required before committing
+./scripts/check.sh --fix           # auto-fix lint/format, then run all checks
+```
+
+Do **not** run a subset (e.g., `./scripts/check.sh lint`) as a substitute for a
+full run before committing. Subsets are useful during development but do not
+satisfy the commit requirement.
+
+When all checks pass, `check.sh` writes a timestamp to `.checks_passed`. The git
+pre-commit hook verifies this file is recent (default: within 60 seconds,
+configurable via `OAPIF_CHECK_MAX_AGE`). If the timestamp is missing or stale,
+the commit is rejected with a clear message.
+
+Available check subsets (for iterating during development):
+
+```bash
 ./scripts/check.sh lint            # ruff lint + format only
 ./scripts/check.sh types           # mypy only
 ./scripts/check.sh unit            # unit tests only
 ./scripts/check.sh integration     # integration tests only
 ./scripts/check.sh synth           # CDK synth only
 ./scripts/check.sh lint types      # combine any subset
-./scripts/check.sh --fix           # auto-fix lint/format, then run all checks
 ./scripts/check.sh --fix lint      # auto-fix lint/format only
 ```
 
-A git pre-commit hook enforces this automatically (installed by DevContainer `postCreateCommand`). Do not use `--no-verify`. If the hook is missing:
+If the hook is missing:
 
 ```bash
 cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
-
-**Note:** Commits may take 60–90 seconds due to the pre-commit hook running all checks. `mypy` in particular can take 45+ seconds when rebuilding its cache, with no status output during that time. Use a generous timeout when committing.
 
 ## Commits & PRs
 
@@ -171,3 +183,4 @@ cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 - S3 is for QGIS project files only — not feature data
 - No automated rollback — change tracking is append-only
 - Never return features the caller isn't authorized to see
+# test
